@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **要求**：
 - **只用中文与用户交流**（这是硬规则，重复三遍）。
 - **不要自己跑浏览器测试**，任何 UI 验证都让用户来做。
-- **MVP 阶段不考虑数据兼容性 / 数据库迁移**：schema 变了允许直接删表重来，`data/` 是测试数据不入 git。
+- **MVP 阶段不考虑数据兼容性 / 数据库迁移**：schema 变了允许直接删掉 `./data` ，重新初始化建表重来。
 
 ## 常用命令
 
