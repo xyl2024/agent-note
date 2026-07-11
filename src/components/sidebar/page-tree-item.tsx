@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight, FileText, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, FileText, MoreHorizontal, Plus, Star, StarOff, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Page } from '@/db/schema'
 import { resolveIcon } from '@/lib/icon-resolver'
@@ -34,6 +34,7 @@ type Props = {
   // Next.js 16：函数 prop 必须以 Action 结尾
   onSelectAction: (id: string) => void
   onPagesChangedAction: () => Promise<void>
+  onToggleFavoriteAction: (pageId: string) => Promise<void>
 }
 
 // 缩进：每一层加 12px（用 paddingLeft 比 pl-N 更安全）
@@ -45,6 +46,7 @@ export function PageTreeItem({
   currentPageId,
   onSelectAction,
   onPagesChangedAction,
+  onToggleFavoriteAction,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(node.title)
@@ -170,6 +172,14 @@ export function PageTreeItem({
           </button>
         )}
 
+        {/* ★ 角标：仅在已收藏时显示（muted-foreground 色调） */}
+        {node.isFavorite && (
+          <Star
+            className="h-3.5 w-3.5 shrink-0 fill-current text-muted-foreground"
+            aria-label="已收藏"
+          />
+        )}
+
         {/* 右键菜单触发器（hover 显示） */}
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -187,6 +197,12 @@ export function PageTreeItem({
             <MoreHorizontal className="h-3.5 w-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" sideOffset={2}>
+            <DropdownMenuItem
+              onClick={() => onToggleFavoriteAction(node.id)}
+            >
+              {node.isFavorite ? <StarOff /> : <Star />}
+              {node.isFavorite ? '从收藏中移除' : '加入收藏'}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleCreateChildAction}>
               <Plus />
               新建子页面
@@ -217,6 +233,7 @@ export function PageTreeItem({
               currentPageId={currentPageId}
               onSelectAction={onSelectAction}
               onPagesChangedAction={onPagesChangedAction}
+              onToggleFavoriteAction={onToggleFavoriteAction}
             />
           ))}
         </ul>

@@ -142,6 +142,41 @@ export function AppShell({ initialPages, initialPageId, initialStats }: Props) {
     [currentPageId, refreshPages],
   )
 
+  // 收藏 toggle: 乐观更新 + PATCH（与 icon 同模式）
+  // 按 pageId 操作（不依赖 currentPageId，因为侧栏任何行都能触发）
+  const toggleFavoriteAction = useCallback(
+    async (pageId: string) => {
+      const current = pages.find((p) => p.id === pageId)
+      if (!current) return
+      const nextFavorite = !current.isFavorite
+      // 乐观更新：立刻在 Sidebar 反映新的 ★ 状态
+      setPages((prev) =>
+        prev.map((p) =>
+          p.id === pageId
+            ? {
+                ...p,
+                isFavorite: nextFavorite,
+                favoritedAt: nextFavorite ? new Date() : null,
+              }
+            : p,
+        ),
+      )
+      try {
+        const res = await fetch(`/api/pages/${pageId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isFavorite: nextFavorite }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (e) {
+        console.error('toggle favorite failed', e)
+        // 失败：重新拉取，恢复真实状态
+        await refreshPages()
+      }
+    },
+    [pages, refreshPages],
+  )
+
   // 创建页面(Dialog 和 suggestion 都会用)
   const createPageAction = useCallback(
     async (title: string): Promise<Page> => {
@@ -223,6 +258,7 @@ export function AppShell({ initialPages, initialPageId, initialStats }: Props) {
         currentPageId={currentPageId}
         onSelectAction={handleSelectAction}
         onPagesChangedAction={refreshPages}
+        onToggleFavoriteAction={toggleFavoriteAction}
         onOpenSearchAction={() => setSearchOpen(true)}
         collapsed={sidebarCollapsed}
         onCollapsedChangeAction={setSidebarCollapsedAction}

@@ -34,6 +34,11 @@ export async function PATCH(
     iconValue?: string | null
     parentId?: string | null
     slug?: string
+    // 收藏 toggle：
+    //   isFavorite=true  → 加入收藏；favoritedAt 不传则后端自动填 now，传了则用客户端值
+    //   isFavorite=false → 取消收藏；favoritedAt 自动设 null
+    isFavorite?: boolean
+    favoritedAt?: string | number | Date | null
   }
 
   const updates: Partial<typeof pages.$inferInsert> = {
@@ -82,6 +87,16 @@ export async function PATCH(
     updates.parentId = body.parentId
   }
   if (body.slug !== undefined) updates.slug = body.slug.trim()
+  if (body.isFavorite !== undefined) {
+    updates.isFavorite = body.isFavorite
+    // 后端维护 favoritedAt：客户端不用关心时间戳
+    if (body.isFavorite) {
+      updates.favoritedAt =
+        body.favoritedAt != null ? new Date(body.favoritedAt) : new Date()
+    } else {
+      updates.favoritedAt = null
+    }
+  }
 
   const result = await db
     .update(pages)

@@ -37,6 +37,9 @@ export type IconType = (typeof ICON_TYPES)[number]
 
 // -----------------------------------------------------------------------------
 // pages：页面元数据（树形）
+// 收藏：isFavorite + favoritedAt 字段，未收藏时 favoritedAt 为 null
+//   - 取消收藏：isFavorite=false, favoritedAt=null
+//   - 加入收藏：isFavorite=true, favoritedAt=now（后端维护，客户端不用传时间）
 // -----------------------------------------------------------------------------
 export const pages = sqliteTable(
   'pages',
@@ -47,6 +50,10 @@ export const pages = sqliteTable(
     slug: text('slug').notNull(),
     iconType: text('icon_type', { enum: ICON_TYPES }),
     iconValue: text('icon_value'),
+    isFavorite: integer('is_favorite', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    favoritedAt: integer('favorited_at', { mode: 'timestamp_ms' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -57,6 +64,8 @@ export const pages = sqliteTable(
   (t) => [
     index('pages_parent_idx').on(t.parentId),
     index('pages_updated_idx').on(t.updatedAt),
+    // 收藏区查询："WHERE is_favorite=1 ORDER BY favorited_at DESC" 走这个复合索引
+    index('pages_favorite_idx').on(t.isFavorite, t.favoritedAt),
   ],
 )
 

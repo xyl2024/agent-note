@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { PageTreeItem } from './page-tree-item'
+import { FavoriteItem } from './favorite-item'
 import { BrandIcon } from '@/components/brand-icon'
 
 // -----------------------------------------------------------------------------
@@ -21,6 +22,8 @@ type Props = {
   // Next.js 16：传给 Client Component 的函数必须以 Action 结尾
   onSelectAction: (id: string) => void
   onPagesChangedAction: () => Promise<void>
+  // 收藏 toggle（侧栏任何行都能触发，按 pageId 操作）
+  onToggleFavoriteAction: (pageId: string) => Promise<void>
   onOpenSearchAction: () => void
   // 侧栏折叠状态（true = 折叠成图标条）
   collapsed: boolean
@@ -55,11 +58,26 @@ export function Sidebar({
   currentPageId,
   onSelectAction,
   onPagesChangedAction,
+  onToggleFavoriteAction,
   onOpenSearchAction,
   collapsed,
   onCollapsedChangeAction,
 }: Props) {
   const tree = useMemo(() => buildTree(pages), [pages])
+
+  // 收藏区列表：isFavorite=true，按 favoritedAt 倒序（最近收藏的在前）
+  // 未收藏的 favoritedAt 为 null，天然被排除
+  const favorites = useMemo(
+    () =>
+      pages
+        .filter((p) => p.isFavorite && p.favoritedAt)
+        .sort(
+          (a, b) =>
+            new Date(b.favoritedAt as Date).getTime() -
+            new Date(a.favoritedAt as Date).getTime(),
+        ),
+    [pages],
+  )
 
   // 顶层"新建页面"按钮：创建根页面
   const handleCreateRootAction = async () => {
@@ -145,7 +163,7 @@ export function Sidebar({
 
       <Separator />
 
-      {/* Page tree */}
+      {/* Page tree + 收藏区（同一个滚动容器） */}
       <nav className="flex-1 overflow-y-auto p-2">
         <div className="px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">
           页面
@@ -164,6 +182,29 @@ export function Sidebar({
                 currentPageId={currentPageId}
                 onSelectAction={onSelectAction}
                 onPagesChangedAction={onPagesChangedAction}
+                onToggleFavoriteAction={onToggleFavoriteAction}
+              />
+            ))}
+          </ul>
+        )}
+
+        {/* 收藏区：在【页面】下方（section 始终渲染，空状态给提示引导） */}
+        <div className="mt-3 px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">
+          收藏
+        </div>
+        {favorites.length === 0 ? (
+          <div className="px-2 py-2 text-xs text-muted-foreground">
+            还没有收藏。在任意页面的「...」菜单里选择「加入收藏」。
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {favorites.map((page) => (
+              <FavoriteItem
+                key={page.id}
+                page={page}
+                currentPageId={currentPageId}
+                onSelectAction={onSelectAction}
+                onToggleFavoriteAction={onToggleFavoriteAction}
               />
             ))}
           </ul>
