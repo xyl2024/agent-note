@@ -375,8 +375,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   return (
     <>
       <div className="mx-auto w-full max-w-3xl px-12 py-16">
-      {/* 页面 icon 头像（Notion 风格：78x78 圆角方形，左对齐） */}
-      <div className="mb-6">
+      {/* 页面 icon + 标题（横向布局：图标在标题左侧）
+          标题用 contentEditable 而非 input：input 自身的 box 会把 descender 字符
+          （g/j/p/q/y）的下行部分裁掉，并在 box 内部出现滚动条。contentEditable
+          没有这个限制。 */}
+      <div className="mb-8 flex items-center gap-4">
         <IconPicker
           value={{ iconType: iconType ?? null, iconValue: iconValue ?? null }}
           open={iconPickerOpen}
@@ -389,7 +392,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
               type="button"
               aria-label={iconValue ? '更换图标' : '添加图标'}
               className={cn(
-                'group/icon grid h-[78px] w-[78px] place-items-center overflow-hidden rounded-lg transition-colors',
+                'group/icon grid h-[78px] w-[78px] shrink-0 place-items-center overflow-hidden rounded-lg transition-colors',
                 'hover:bg-muted/60',
                 !iconValue &&
                   'border border-dashed border-muted-foreground/30 text-muted-foreground/60 hover:border-muted-foreground/60 hover:text-muted-foreground',
@@ -415,46 +418,43 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
             </button>
           }
         />
-      </div>
 
-      {/* 标题（H1，不进 Tiptap doc，独立保存）
-          用 contentEditable 而非 input：input 自身的 box 会把 descender 字符
-          （g/j/p/q/y）的下行部分裁掉，并在 box 内部出现滚动条。contentEditable
-          没有这个限制。 */}
-      <div
-        ref={titleRef}
-        contentEditable
-        suppressContentEditableWarning
-        role="textbox"
-        aria-label="页面标题"
-        onCompositionStart={() => {
-          isComposingRef.current = true
-        }}
-        onCompositionEnd={(e) => {
-          isComposingRef.current = false
-          const text = e.currentTarget.textContent ?? ''
-          commitTitleAction(text)
-        }}
-        onInput={(e) => {
-          if (isComposingRef.current) return
-          const text = (e.currentTarget as HTMLDivElement).textContent ?? ''
-          commitTitleAction(text)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+        {/* 标题（H1，不进 Tiptap doc，独立保存） */}
+        <div
+          ref={titleRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-label="页面标题"
+          onCompositionStart={() => {
+            isComposingRef.current = true
+          }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false
+            const text = e.currentTarget.textContent ?? ''
+            commitTitleAction(text)
+          }}
+          onInput={(e) => {
+            if (isComposingRef.current) return
+            const text = (e.currentTarget as HTMLDivElement).textContent ?? ''
+            commitTitleAction(text)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              editor?.commands.focus('start')
+            }
+          }}
+          onPaste={(e) => {
             e.preventDefault()
-            editor?.commands.focus('start')
-          }
-        }}
-        onPaste={(e) => {
-          e.preventDefault()
-          const text = e.clipboardData.getData('text/plain')
-          // 用 execCommand 插入纯文本：会触发 input 事件让 onInput 同步状态。
-          document.execCommand('insertText', false, text)
-        }}
-        data-placeholder="无标题"
-        className="mb-8 w-full cursor-text bg-transparent text-4xl font-bold tracking-tight outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none"
-      />
+            const text = e.clipboardData.getData('text/plain')
+            // 用 execCommand 插入纯文本：会触发 input 事件让 onInput 同步状态。
+            document.execCommand('insertText', false, text)
+          }}
+          data-placeholder="无标题"
+          className="flex-1 cursor-text bg-transparent text-4xl font-bold tracking-tight outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none"
+        />
+      </div>
 
       {/* 编辑器 */}
       <EditorContent editor={editor} />
