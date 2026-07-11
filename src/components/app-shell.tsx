@@ -180,7 +180,11 @@ export function AppShell({ initialPages, initialPageId }: Props) {
         onSelectAction={handleSelectAction}
         onPagesChangedAction={refreshPages}
       />
-      <main ref={editorScrollRef} className="flex-1 overflow-y-auto">
+      <main
+        ref={editorScrollRef}
+        data-editor-scroll-container
+        className="flex-1 overflow-y-auto"
+      >
         {currentPage ? (
           <Editor
             ref={editorRef}

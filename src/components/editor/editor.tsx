@@ -26,6 +26,7 @@ import { debounce } from '@/lib/debounce'
 import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
 import { cn } from '@/lib/utils'
+import { useEditorScrollFollow } from './use-editor-scroll-follow'
 import './editor.css'
 
 // -----------------------------------------------------------------------------
@@ -308,6 +309,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       onHeadingsChangeAction?.(headings)
     },
   })
+
+  useEditorScrollFollow(editor)
 
   // ---------------------------------------------------------------------------
   // 同步外部 title 变更（如侧栏重命名同步过来）
