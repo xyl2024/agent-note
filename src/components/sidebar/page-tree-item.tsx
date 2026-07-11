@@ -30,7 +30,7 @@ import type { PageNode } from './sidebar'
 type Props = {
   node: PageNode
   depth: number
-  currentPageId: string
+  currentPageId: string | null
   // Next.js 16：函数 prop 必须以 Action 结尾
   onSelectAction: (id: string) => void
   onPagesChangedAction: () => Promise<void>

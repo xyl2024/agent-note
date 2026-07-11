@@ -1,41 +1,74 @@
-import { randomUUID } from 'node:crypto'
-import { asc, eq, isNull } from 'drizzle-orm'
+import type { Metadata } from 'next'
+import { sql, desc } from 'drizzle-orm'
 import { AppShell } from '@/components/app-shell'
+import type { HomeViewStats } from '@/components/home/home-view'
 import { db } from '@/db/client'
-import { pages } from '@/db/schema'
+import { pages, blocks } from '@/db/schema'
+import type { Page } from '@/db/schema'
 
-// 主页：服务器端确保至少有一个根页面（首次启动自动建欢迎页），
-// 然后把页面列表交给 AppShell 客户端组件管状态。
-// favicon 使用 layout.tsx 的默认（未选中具体笔记）
-export default async function Home() {
-  // 先找最早创建的根页面作为默认
-  let rootPages = await db
-    .select()
-    .from(pages)
-    .where(isNull(pages.parentId))
-    .orderBy(asc(pages.createdAt))
-    .limit(1)
+export const metadata: Metadata = {
+  title: 'Agent Note',
+}
 
-  // 没有任何根页面 → 建一个欢迎页
-  if (rootPages.length === 0) {
-    const id = randomUUID()
-    const now = new Date()
-    await db.insert(pages).values({
-      id,
-      parentId: null,
-      title: '欢迎使用 Agent Note',
-      slug: id,
-      iconType: 'emoji',
-      iconValue: '👋',
-      createdAt: now,
-      updatedAt: now,
-    })
-    rootPages = await db.select().from(pages).where(eq(pages.id, id)).limit(1)
+// 首页数据加载放在组件外的普通函数里：
+// - 组件体内直接调 Date.now() 会被 React Compiler 规则判为「不纯」
+// - 抽出来后既符合规则，也顺便把 5 个查询并发起
+async function loadHomeData(): Promise<{
+  allPages: Page[]
+  initialStats: HomeViewStats
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+  const [allPages, [totalPagesRow], [totalBlocksRow], [weekNewRow], recentPages] =
+    await Promise.all([
+      db.select().from(pages),
+      db.select({ n: sql<number>`count(*)` }).from(pages),
+      db.select({ n: sql<number>`count(*)` }).from(blocks),
+      db
+        .select({ n: sql<number>`count(*)` })
+        .from(pages)
+        .where(
+          sql`${pages.parentId} IS NULL AND ${pages.createdAt} >= ${sevenDaysAgo.getTime()}`,
+        ),
+      db
+        .select({
+          id: pages.id,
+          title: pages.title,
+          iconType: pages.iconType,
+          iconValue: pages.iconValue,
+          parentId: pages.parentId,
+          updatedAt: pages.updatedAt,
+          createdAt: pages.createdAt,
+          blockCount: sql<number>`(SELECT COUNT(*) FROM blocks WHERE blocks.page_id = pages.id)`,
+        })
+        .from(pages)
+        .orderBy(desc(pages.updatedAt))
+        .limit(8),
+    ])
+
+  return {
+    allPages,
+    initialStats: {
+      totalPages: totalPagesRow?.n ?? 0,
+      totalBlocks: totalBlocksRow?.n ?? 0,
+      weekNewPages: weekNewRow?.n ?? 0,
+      recentPages,
+    },
   }
+}
 
-  const allPages = await db.select().from(pages)
+// 主页（/）：渲染 Notion 风格首页（HomeView），不再自动跳转到第一篇文章。
+// - 不再自动创建欢迎页；已存在的欢迎页仍可通过 sidebar 访问
+// - initialPageId 传 null，由 AppShell 渲染 HomeView
+// - 服务端一次算出首页 stats 注入，避免首屏 loading 闪烁
+export default async function Home() {
+  const { allPages, initialStats } = await loadHomeData()
 
   return (
-    <AppShell initialPages={allPages} initialPageId={rootPages[0].id} />
+    <AppShell
+      initialPages={allPages}
+      initialPageId={null}
+      initialStats={initialStats}
+    />
   )
 }

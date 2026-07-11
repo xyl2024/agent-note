@@ -1,24 +1,26 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Plus, Search, Settings } from 'lucide-react'
 import type { Page } from '@/db/schema'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { SearchDialog } from '@/components/search/search-dialog'
 import { PageTreeItem } from './page-tree-item'
 import { BrandIcon } from '@/components/brand-icon'
 
 // -----------------------------------------------------------------------------
 // Sidebar：页面树 + 顶部操作
+// 搜索弹窗状态由 AppShell 统一持有（首页 / sidebar 都要触发），这里只负责触发。
 // -----------------------------------------------------------------------------
 type Props = {
   pages: Page[]
-  currentPageId: string
+  // null 表示当前在首页（无高亮项）
+  currentPageId: string | null
   // Next.js 16：传给 Client Component 的函数必须以 Action 结尾
   onSelectAction: (id: string) => void
   onPagesChangedAction: () => Promise<void>
+  onOpenSearchAction: () => void
 }
 
 // 树形节点
@@ -49,21 +51,9 @@ export function Sidebar({
   currentPageId,
   onSelectAction,
   onPagesChangedAction,
+  onOpenSearchAction,
 }: Props) {
   const tree = useMemo(() => buildTree(pages), [pages])
-  const [searchOpen, setSearchOpen] = useState(false)
-
-  // 全局 Cmd+K / Ctrl+K 快捷键监听
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setSearchOpen((v) => !v)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
 
   // 顶层"新建页面"按钮：创建根页面
   const handleCreateRootAction = async () => {
@@ -97,7 +87,7 @@ export function Sidebar({
           variant="ghost"
           size="sm"
           className="justify-start gap-2"
-          onClick={() => setSearchOpen(true)}
+          onClick={onOpenSearchAction}
         >
           <Search className="h-4 w-4" />
           <span className="text-xs">搜索</span>
@@ -125,7 +115,7 @@ export function Sidebar({
         </div>
         {tree.length === 0 ? (
           <div className="px-2 py-2 text-xs text-muted-foreground">
-            还没有页面，点上面"新建页面"开始。
+            还没有页面，点上面「新建页面」开始。
           </div>
         ) : (
           <ul className="flex flex-col gap-0.5">
@@ -156,13 +146,6 @@ export function Sidebar({
           <span className="text-xs">设置</span>
         </Button>
       </div>
-
-      {/* 搜索弹窗 */}
-      <SearchDialog
-        open={searchOpen}
-        onOpenChangeAction={setSearchOpen}
-        onSelectPageAction={onSelectAction}
-      />
     </aside>
   )
 }
