@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SearchDialog } from '@/components/search/search-dialog'
 import { PageTreeItem } from './page-tree-item'
+import { BrandIcon } from '@/components/brand-icon'
 
 // -----------------------------------------------------------------------------
 // Sidebar：页面树 + 顶部操作
@@ -82,9 +83,7 @@ export function Sidebar({
       {/* Workspace header */}
       <div className="flex items-center justify-between px-3 py-3">
         <div className="flex items-center gap-2">
-          <div className="grid h-6 w-6 place-items-center rounded bg-primary text-xs font-bold text-primary-foreground">
-            A
-          </div>
+          <BrandIcon className="h-6 w-6" />
           <span className="text-sm font-semibold">Agent Note</span>
         </div>
         <ThemeToggle />
