@@ -15,7 +15,8 @@
     "test:editor-save": "bash scripts/test-editor-save.sh",
     "test:upload": "bash scripts/test-upload.sh",
     "test:search": "bash scripts/test-search.sh",
-    "fts:backfill": "tsx src/db/backfill-fts.ts"
+    "fts:backfill": "tsx src/db/backfill-fts.ts",
+    "lucide:extract": "node scripts/extract-lucide-paths.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

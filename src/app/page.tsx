@@ -6,6 +6,7 @@ import { pages } from '@/db/schema'
 
 // 主页：服务器端确保至少有一个根页面（首次启动自动建欢迎页），
 // 然后把页面列表交给 AppShell 客户端组件管状态。
+// favicon 使用 layout.tsx 的默认（未选中具体笔记）
 export default async function Home() {
   // 先找最早创建的根页面作为默认
   let rootPages = await db

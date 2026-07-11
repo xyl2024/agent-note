@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { eq } from 'drizzle-orm'
+import type { Metadata } from 'next'
 import { AppShell } from '@/components/app-shell'
 import { db } from '@/db/client'
 import { pages } from '@/db/schema'
@@ -10,6 +11,26 @@ import { pages } from '@/db/schema'
 // - 拉全部页面给 Sidebar 建树
 // - 交给 AppShell，由客户端的 useParams / useRouter 接管后续导航
 // -----------------------------------------------------------------------------
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const target = await db
+    .select({ title: pages.title })
+    .from(pages)
+    .where(eq(pages.id, id))
+    .limit(1)
+  const page = target[0]
+  return {
+    title: page?.title ? `${page.title} · Agent Note` : 'Agent Note',
+    icons: {
+      icon: [`/api/favicon/${id}`],
+    },
+  }
+}
+
 export default async function PageById({
   params,
 }: {
