@@ -8,13 +8,6 @@
       "when": 1783754896460,
       "tag": "0000_mushy_leopardon",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1783754896461,
-      "tag": "0001_favorite_fields",
-      "breakpoints": true
     }
   ]
 }
