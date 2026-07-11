@@ -1,0 +1,435 @@
+#!/usr/bin/env node
+// Markdown 双向 round-trip 测试
+// 跑法：node --import tsx scripts/test-markdown.mjs
+
+import {
+  docToMarkdown,
+  markdownToDoc,
+  looksLikeMarkdown,
+} from '../src/lib/markdown/index.ts'
+
+let pass = 0
+let fail = 0
+
+function eq(name, actual, expected) {
+  const a = JSON.stringify(actual)
+  const e = JSON.stringify(expected)
+  if (a === e) {
+    pass++
+    console.log('  PASS  ' + name)
+  } else {
+    fail++
+    console.log('  FAIL  ' + name)
+    console.log('        expected: ' + e)
+    console.log('        actual:   ' + a)
+  }
+}
+
+function eqStr(name, actual, expected) {
+  if (actual === expected) {
+    pass++
+    console.log('  PASS  ' + name)
+  } else {
+    fail++
+    console.log('  FAIL  ' + name)
+    console.log('        expected: ' + JSON.stringify(expected))
+    console.log('        actual:   ' + JSON.stringify(actual))
+  }
+}
+
+function runSection(title, fn) {
+  console.log('\n--- ' + title + ' ---')
+  fn()
+}
+
+// ---------------------------------------------------------------------------
+// looksLikeMarkdown
+// ---------------------------------------------------------------------------
+runSection('looksLikeMarkdown', () => {
+  eq('empty', looksLikeMarkdown(''), false)
+  eq('plain sentence', looksLikeMarkdown('hello world'), false)
+  eq('multi-line plain', looksLikeMarkdown('line one\nline two'), false)
+  eq('heading', looksLikeMarkdown('# Hi'), true)
+  eq('bullet', looksLikeMarkdown('- one\n- two'), true)
+  eq('ordered', looksLikeMarkdown('1. one\n2. two'), true)
+  eq('task list', looksLikeMarkdown('- [x] done\n- [ ] todo'), true)
+  eq('code fence', looksLikeMarkdown('```js\nx\n```'), true)
+  eq('blockquote', looksLikeMarkdown('> hello'), true)
+  eq('hr', looksLikeMarkdown('---'), true)
+  eq('bold', looksLikeMarkdown('this is **bold**'), true)
+  eq('italic', looksLikeMarkdown('this is *italic*'), true)
+  eq('strike', looksLikeMarkdown('this is ~~struck~~'), true)
+  eq('code', looksLikeMarkdown('this is `code`'), true)
+  eq('link', looksLikeMarkdown('click [here](https://x)'), true)
+  eq('wikilink', looksLikeMarkdown('see [[Foo]] for more'), true)
+})
+
+// ---------------------------------------------------------------------------
+// docToMarkdown
+// ---------------------------------------------------------------------------
+runSection('docToMarkdown', () => {
+  eqStr('heading + paragraph',
+    docToMarkdown({
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Title' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] },
+      ],
+    }),
+    '# Title\n\nHello',
+  )
+
+  eqStr('bullet list flat',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }] },
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+        ],
+      }],
+    }),
+    '- a\n- b',
+  )
+
+  eqStr('bullet list nested',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'a' }] },
+              {
+                type: 'bulletList',
+                content: [
+                  { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a1' }] }] },
+                  { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a2' }] }] },
+                ],
+              },
+            ],
+          },
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+        ],
+      }],
+    }),
+    '- a\n  - a1\n  - a2\n- b',
+  )
+
+  eqStr('task list',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'taskList',
+        content: [
+          { type: 'taskItem', attrs: { checked: true }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'done' }] }] },
+          { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'todo' }] }] },
+        ],
+      }],
+    }),
+    '- [x] done\n- [ ] todo',
+  )
+
+  eqStr('code block',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'js' },
+        content: [{ type: 'text', text: 'console.log(1)' }],
+      }],
+    }),
+    '```js\nconsole.log(1)\n```',
+  )
+
+  eqStr('blockquote',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'hello' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'world' }] },
+        ],
+      }],
+    }),
+    '> hello\n> world',
+  )
+
+  eqStr('horizontalRule',
+    docToMarkdown({ type: 'doc', content: [{ type: 'horizontalRule' }] }),
+    '---',
+  )
+
+  eqStr('wikilink',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Foo',
+          marks: [{ type: 'pageLink', attrs: { pageId: 'abc', pageTitle: 'Foo' } }],
+        }],
+      }],
+    }),
+    '[[Foo]]',
+  )
+
+  eqStr('wikilink (pageId=null still serializes title)',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Bar',
+          marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Bar' } }],
+        }],
+      }],
+    }),
+    '[[Bar]]',
+  )
+
+  eqStr('wikilink with surrounding text',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'see ' },
+          { type: 'text', text: 'Foo',
+            marks: [{ type: 'pageLink', attrs: { pageId: 'x', pageTitle: 'Foo' } }] },
+          { type: 'text', text: ' for more' },
+        ],
+      }],
+    }),
+    'see [[Foo]] for more',
+  )
+})
+
+// ---------------------------------------------------------------------------
+// markdownToDoc
+// ---------------------------------------------------------------------------
+runSection('markdownToDoc', () => {
+  eq('heading + paragraph',
+    markdownToDoc('# Title\n\nHello'),
+    {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Title' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] },
+      ],
+    },
+  )
+
+  eq('bullet list flat',
+    markdownToDoc('- a\n- b'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }] },
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+        ],
+      }],
+    },
+  )
+
+  eq('bullet list nested',
+    markdownToDoc('- a\n  - a1\n  - a2\n- b'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'a' }] },
+              {
+                type: 'bulletList',
+                content: [
+                  { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a1' }] }] },
+                  { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a2' }] }] },
+                ],
+              },
+            ],
+          },
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+        ],
+      }],
+    },
+  )
+
+  eq('task list',
+    markdownToDoc('- [x] done\n- [ ] todo'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'taskList',
+        content: [
+          { type: 'taskItem', attrs: { checked: true }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'done' }] }] },
+          { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'todo' }] }] },
+        ],
+      }],
+    },
+  )
+
+  eq('code block',
+    markdownToDoc('```js\nconsole.log(1)\n```'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'js' },
+        content: [{ type: 'text', text: 'console.log(1)' }],
+      }],
+    },
+  )
+
+  eq('blockquote (lazy continuation = 1 para)',
+    markdownToDoc('> hello\n> world'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'hello\nworld' }] },
+        ],
+      }],
+    },
+  )
+
+  eq('blockquote (blank line = 2 paras)',
+    markdownToDoc('> hello\n\n> world'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'hello' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'world' }] },
+        ],
+      }],
+    },
+  )
+
+  eq('horizontalRule',
+    markdownToDoc('---'),
+    { type: 'doc', content: [{ type: 'horizontalRule' }] },
+  )
+
+  eq('inline marks',
+    markdownToDoc('a **B** c *I* d ~~X~~ e `C` f [L](https://x) g'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          { type: 'text', text: 'B', marks: [{ type: 'bold' }] },
+          { type: 'text', text: ' c ' },
+          { type: 'text', text: 'I', marks: [{ type: 'italic' }] },
+          { type: 'text', text: ' d ' },
+          { type: 'text', text: 'X', marks: [{ type: 'strike' }] },
+          { type: 'text', text: ' e ' },
+          { type: 'text', text: 'C', marks: [{ type: 'code' }] },
+          { type: 'text', text: ' f ' },
+          { type: 'text', text: 'L', marks: [{ type: 'link', attrs: { href: 'https://x' } }] },
+          { type: 'text', text: ' g' },
+        ],
+      }],
+    },
+  )
+
+  eq('wikilink in paragraph',
+    markdownToDoc('see [[Foo]] for more'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'see ' },
+          {
+            type: 'text',
+            text: 'Foo',
+            marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Foo' } }],
+          },
+          { type: 'text', text: ' for more' },
+        ],
+      }],
+    },
+  )
+
+  eq('wikilink with title containing spaces',
+    markdownToDoc('[[My Note Title]]'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'My Note Title',
+          marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'My Note Title' } }],
+        }],
+      }],
+    },
+  )
+
+  eq('wikilink and link coexist',
+    markdownToDoc('see [[Foo]] or [Bar](https://x)'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'see ' },
+          {
+            type: 'text',
+            text: 'Foo',
+            marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Foo' } }],
+          },
+          { type: 'text', text: ' or ' },
+          {
+            type: 'text',
+            text: 'Bar',
+            marks: [{ type: 'link', attrs: { href: 'https://x' } }],
+          },
+        ],
+      }],
+    },
+  )
+})
+
+// ---------------------------------------------------------------------------
+// round-trip: serialize → parse → serialize 应稳定
+// ---------------------------------------------------------------------------
+runSection('round-trip stable', () => {
+  const fixtures = [
+    '# Title\n\nHello',
+    '- a\n- b',
+    '- a\n  - a1\n  - a2\n- b',
+    '- [x] done\n- [ ] todo',
+    '```js\nconsole.log(1)\n```',
+    '> hello\n> world',
+    '---',
+    'see [[Foo]] for more',
+    'see [[Foo]] or [Bar](https://x)',
+    '[[My Note Title]]',
+  ]
+  for (const md of fixtures) {
+    const once = docToMarkdown(markdownToDoc(md))
+    const twice = docToMarkdown(markdownToDoc(once))
+    eqStr('stable: ' + JSON.stringify(md), twice, once)
+  }
+})
+
+console.log('\n================================')
+console.log('  ' + pass + ' passed, ' + fail + ' failed')
+console.log('================================\n')
+process.exit(fail === 0 ? 0 : 1)

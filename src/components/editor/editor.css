@@ -1,0 +1,411 @@
+/* Tiptap 编辑器样式
+   配色策略：所有 token 直接用 var(--xxx)（oklch 值），半透明用 color-mix(in oklch, ...)
+   升级目标（grill 决策）：
+   - blockquote: Notion 经典（浅灰背景块 + 左侧 3px 灰条 + 文字 muted）
+   - code block: Notion 风（顶部 header：语言 chip + 复制按钮 + 圆角 8px）
+   - task list: Notion 风圆角方框 checkbox
+   - inline code: 圆角 4px + 字号 0.875em + font-weight 500
+   - heading: hover 出现 # anchor 链接
+   - HR: 用 border token
+   - 装饰节奏: 圆角 8px / 无阴影 / 100-150ms hover transition
+*/
+
+/* -----------------------------------------------------------------------------
+   基础
+   ----------------------------------------------------------------------------- */
+.tiptap {
+  outline: none;
+  min-height: 60vh;
+}
+
+/* 占位符 */
+.tiptap p.is-editor-empty:first-child::before,
+.tiptap h1.is-empty::before,
+.tiptap h2.is-empty::before,
+.tiptap h3.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  pointer-events: none;
+  height: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Heading
+   ----------------------------------------------------------------------------- */
+.tiptap h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+.tiptap h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+.tiptap h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+/* Heading anchor (# 链接，由 HeadingAnchor extension 注入) */
+.tiptap .heading-anchor {
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.875em;
+  line-height: 1;
+}
+.tiptap h1:hover > .heading-anchor,
+.tiptap h2:hover > .heading-anchor,
+.tiptap h3:hover > .heading-anchor {
+  opacity: 1;
+}
+.tiptap .heading-anchor:hover {
+  color: var(--foreground);
+}
+
+/* -----------------------------------------------------------------------------
+   Paragraph
+   ----------------------------------------------------------------------------- */
+.tiptap p {
+  margin: 0.25rem 0;
+  line-height: 1.7;
+}
+
+/* -----------------------------------------------------------------------------
+   Lists
+   ----------------------------------------------------------------------------- */
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+.tiptap ul { list-style-type: disc; }
+.tiptap ol { list-style-type: decimal; }
+.tiptap li > p { margin: 0; }
+.tiptap li { margin: 0.125rem 0; }
+
+/* -----------------------------------------------------------------------------
+   Task list (Notion 风圆角方框 checkbox)
+   ----------------------------------------------------------------------------- */
+.tiptap ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.tiptap ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.tiptap ul[data-type='taskList'] li > label {
+  margin-top: 0.4rem;
+  user-select: none;
+  display: inline-flex;
+}
+.tiptap ul[data-type='taskList'] input[type='checkbox'] {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid var(--border);
+  background-color: var(--background);
+  display: grid;
+  place-content: center;
+  transition: background-color 100ms ease, border-color 100ms ease;
+  margin: 0;
+}
+.tiptap ul[data-type='taskList'] input[type='checkbox']:hover {
+  border-color: var(--muted-foreground);
+}
+.tiptap ul[data-type='taskList'] input[type='checkbox']:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+.tiptap ul[data-type='taskList'] input[type='checkbox']:checked::before {
+  content: '';
+  width: 0.625rem;
+  height: 0.625rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 8 7 12 13 4'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.tiptap ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* -----------------------------------------------------------------------------
+   Blockquote (Notion 经典：整行浅灰背景 + 左侧 3px 灰条 + 文字 muted)
+   ----------------------------------------------------------------------------- */
+.tiptap blockquote {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+  border-left: 3px solid var(--border);
+  /* 左侧不圆角（留给边框条），右侧三圆角 8px */
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  color: var(--muted-foreground);
+}
+.tiptap blockquote p {
+  margin: 0.25rem 0;
+}
+.tiptap blockquote blockquote {
+  margin: 0.5rem 0;
+}
+
+.tiptap pre {
+  --code-block-background: oklch(0.985 0.004 255);
+  --code-block-foreground: oklch(0.22 0.015 260);
+  --code-block-border: color-mix(in oklch, var(--border) 70%, transparent);
+  --code-header-background: color-mix(in oklch, var(--muted) 72%, var(--background));
+  --code-selection-background: color-mix(in oklch, var(--primary) 18%, transparent);
+  --code-token-comment: oklch(0.56 0.018 260);
+  --code-token-red: oklch(0.55 0.16 25);
+  --code-token-orange: oklch(0.58 0.13 62);
+  --code-token-green: oklch(0.45 0.13 145);
+  --code-token-blue: oklch(0.48 0.14 255);
+  --code-token-purple: oklch(0.5 0.13 300);
+  --code-token-cyan: oklch(0.5 0.11 205);
+  background: var(--code-block-background);
+  color: var(--code-block-foreground);
+  border: 1px solid var(--code-block-border);
+  border-radius: 0.5rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.875rem;
+  overflow: hidden;
+  margin: 0.75rem 0;
+  position: relative;
+}
+.dark .tiptap pre {
+  --code-block-background: oklch(0.19 0.012 260);
+  --code-block-foreground: oklch(0.88 0.01 260);
+  --code-block-border: color-mix(in oklch, var(--border) 82%, transparent);
+  --code-header-background: oklch(0.23 0.012 260);
+  --code-selection-background: color-mix(in oklch, var(--primary) 20%, transparent);
+  --code-token-comment: oklch(0.67 0.02 260);
+  --code-token-red: oklch(0.76 0.16 24);
+  --code-token-orange: oklch(0.78 0.13 65);
+  --code-token-green: oklch(0.76 0.13 150);
+  --code-token-blue: oklch(0.76 0.12 250);
+  --code-token-purple: oklch(0.78 0.12 310);
+  --code-token-cyan: oklch(0.78 0.11 205);
+}
+.tiptap pre .code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--code-block-border);
+  background-color: var(--code-header-background);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  user-select: none;
+}
+.tiptap pre .code-header .lang {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: lowercase;
+}
+.tiptap pre .code-header .copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, background-color 100ms ease, color 100ms ease;
+  font-family: var(--font-sans);
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.tiptap pre:hover .code-header .copy-btn,
+.tiptap pre .code-header .copy-btn:focus-visible {
+  opacity: 1;
+}
+.tiptap pre .code-header .copy-btn:hover {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+.tiptap pre .code-header .copy-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.tiptap pre .code-body {
+  position: relative;
+  overflow-x: auto;
+}
+.tiptap pre .code-highlight,
+.tiptap pre .code-input {
+  display: block;
+  box-sizing: border-box;
+  min-width: 100%;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+  line-height: 1.5;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: inherit;
+  white-space: pre;
+  tab-size: 2;
+}
+.tiptap pre .code-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  color: var(--code-block-foreground);
+  pointer-events: none;
+  user-select: none;
+}
+.tiptap pre .code-input {
+  position: relative;
+  z-index: 2;
+  color: transparent;
+  caret-color: var(--code-block-foreground);
+  outline: none;
+}
+.tiptap pre .code-input::selection {
+  background: var(--code-selection-background);
+  color: transparent;
+}
+.tiptap pre .hljs-comment,
+.tiptap pre .hljs-quote {
+  color: var(--code-token-comment);
+  font-style: italic;
+}
+.tiptap pre .hljs-keyword,
+.tiptap pre .hljs-selector-tag,
+.tiptap pre .hljs-subst {
+  color: var(--code-token-purple);
+}
+.tiptap pre .hljs-number,
+.tiptap pre .hljs-literal,
+.tiptap pre .hljs-variable,
+.tiptap pre .hljs-template-variable,
+.tiptap pre .hljs-tag .hljs-attr {
+  color: var(--code-token-orange);
+}
+.tiptap pre .hljs-string,
+.tiptap pre .hljs-doctag,
+.tiptap pre .hljs-regexp {
+  color: var(--code-token-green);
+}
+.tiptap pre .hljs-title,
+.tiptap pre .hljs-section,
+.tiptap pre .hljs-selector-id {
+  color: var(--code-token-blue);
+}
+.tiptap pre .hljs-type,
+.tiptap pre .hljs-class .hljs-title,
+.tiptap pre .hljs-built_in,
+.tiptap pre .hljs-builtin-name {
+  color: var(--code-token-cyan);
+}
+.tiptap pre .hljs-name,
+.tiptap pre .hljs-attribute,
+.tiptap pre .hljs-meta,
+.tiptap pre .hljs-symbol,
+.tiptap pre .hljs-bullet,
+.tiptap pre .hljs-link {
+  color: var(--code-token-red);
+}
+.tiptap pre .hljs-addition {
+  color: var(--code-token-green);
+}
+.tiptap pre .hljs-deletion {
+  color: var(--code-token-red);
+}
+.tiptap code {
+  background: color-mix(in oklch, var(--muted) 72%, var(--background));
+  color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
+  border: 1px solid color-mix(in oklch, var(--border) 58%, transparent);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+.tiptap pre code {
+  background: transparent;
+  border: 0;
+  padding: 0.75rem 1rem;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* -----------------------------------------------------------------------------
+   HR
+   ----------------------------------------------------------------------------- */
+.tiptap hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+}
+
+/* -----------------------------------------------------------------------------
+   PageLink (双向链接)
+   ----------------------------------------------------------------------------- */
+.tiptap a.page-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: text-decoration-thickness 100ms ease;
+}
+.tiptap a.page-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* 未解析（pageId 为 null）：红色虚线 */
+.tiptap a.page-link:not([data-page-id]) {
+  color: var(--destructive);
+  text-decoration: underline dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+.tiptap a.page-link:not([data-page-id]):hover {
+  text-decoration-thickness: 2px;
+}
+
+/* -----------------------------------------------------------------------------
+   图片
+   ----------------------------------------------------------------------------- */
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: block;
+}
+
