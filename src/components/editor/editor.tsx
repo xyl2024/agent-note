@@ -328,14 +328,16 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   }, [title])
 
   // ---------------------------------------------------------------------------
-  // 初始化标题 div 内容：仅在 mount 时写一次，避免 React 把 textContent 重新写回去
-  // 把光标位置打断。
+  // 初始化标题 div 内容：把 loading 也放进 deps，因为组件首次 mount 时
+  // loading=true 会先 return spinner，标题 div 还没挂载到 DOM；等 fetch
+  // 完成 setLoading(false) 后 div 才出现，必须再触发一次才能写入 textContent。
+  // 仅当 el 存在时写入，所以不会覆盖用户正在输入的内容（loading 后续不变）。
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const el = titleRef.current
     if (el) el.textContent = fromStoredTitle(title)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loading])
 
   // ---------------------------------------------------------------------------
   // 暴露给父组件的命令式方法：创建完页面后回填 pageLink mark
