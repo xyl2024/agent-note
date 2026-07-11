@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { Plus, Search, Settings } from 'lucide-react'
 import type { Page } from '@/db/schema'
 import { Button } from '@/components/ui/button'
@@ -72,10 +73,10 @@ export function Sidebar({
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* Workspace header */}
       <div className="flex items-center justify-between px-3 py-3">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <BrandIcon className="h-6 w-6" />
           <span className="text-sm font-semibold">Agent Note</span>
-        </div>
+        </Link>
         <ThemeToggle />
       </div>
 
