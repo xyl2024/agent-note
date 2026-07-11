@@ -180,29 +180,29 @@ export function HomeView({
   return (
     <div className="home-root mx-auto w-full max-w-4xl px-8 py-10 sm:px-12 sm:py-14">
       {/* ───────────── Hero ───────────── */}
-      <section className="home-hero mb-10 flex items-start justify-between gap-6">
+      <section className="home-hero mb-12 flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted-foreground">
             <Sparkles className="h-3 w-3" />
             <span>Agent Note</span>
           </div>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-[2.5rem] sm:leading-[1.1]">
             {greeting}
           </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             {longDate || '准备好开始记录今天的想法了吗？'}
           </p>
         </div>
       </section>
 
       {/* ───────────── Quick Actions ───────────── */}
-      <section className="home-quick mb-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className="home-quick mb-12 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button
           type="button"
           onClick={onOpenSearchAction}
-          className="home-card group flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-all hover:border-foreground/20 hover:shadow-sm"
+          className="home-card group flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:border-foreground/15"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-muted text-foreground">
             <Search className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">
@@ -220,9 +220,9 @@ export function HomeView({
           type="button"
           onClick={handleCreateAction}
           disabled={creating}
-          className="home-card group flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-all hover:border-foreground/20 hover:shadow-sm disabled:opacity-50"
+          className="home-card group flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:border-foreground/15 disabled:opacity-50"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-foreground/[0.06] text-foreground">
             <Plus className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">
@@ -235,7 +235,7 @@ export function HomeView({
         </button>
 
         <div className="home-card flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-muted text-muted-foreground">
             <CalendarDays className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1">
@@ -250,26 +250,14 @@ export function HomeView({
       </section>
 
       {/* ───────────── Stats ───────────── */}
-      <section className="home-stats mb-10 grid grid-cols-3 gap-3">
-        <StatCard
-          label="全部页面"
-          value={stats.totalPages}
-          accent="from-blue-500/8 to-blue-500/0"
-        />
-        <StatCard
-          label="全部内容块"
-          value={stats.totalBlocks}
-          accent="from-violet-500/8 to-violet-500/0"
-        />
-        <StatCard
-          label="近 7 天新增"
-          value={stats.weekNewPages}
-          accent="from-emerald-500/8 to-emerald-500/0"
-        />
+      <section className="home-stats mb-8 grid grid-cols-3 gap-3">
+        <StatCard label="全部页面" value={stats.totalPages} />
+        <StatCard label="全部内容块" value={stats.totalBlocks} />
+        <StatCard label="近 7 天新增" value={stats.weekNewPages} />
       </section>
 
       {/* ───────────── Recent ───────────── */}
-      <section className="home-section mb-10">
+      <section className="home-section mb-12">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-semibold tracking-tight">最近编辑</h2>
           <span className="text-xs text-muted-foreground">
@@ -307,9 +295,9 @@ export function HomeView({
                     <span className="block truncate text-sm font-medium">
                       {p.title || 'Untitled'}
                     </span>
-                    <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span>{formatRelativeTime(p.updatedAt)}</span>
-                      <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                      <span aria-hidden="true" className="text-muted-foreground/40">·</span>
                       <span>{p.blockCount} 个内容块</span>
                     </span>
                   </span>
@@ -354,32 +342,20 @@ export function HomeView({
 
 // -----------------------------------------------------------------------------
 // StatCard：单张统计卡（hero 风格：数字超大、底部 label）
+// 去掉了渐变装饰和 uppercase eyebrow，让 stats 完全靠数字本身的体量说话。
 // -----------------------------------------------------------------------------
 function StatCard({
   label,
   value,
-  accent,
 }: {
   label: string
   value: number
-  accent: string
 }) {
   return (
-    <div className="home-stat relative overflow-hidden rounded-xl border bg-card p-4">
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-0 bg-gradient-to-br',
-          accent,
-        )}
-        aria-hidden="true"
-      />
-      <div className="relative">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {label}
-        </div>
-        <div className="mt-1.5 text-3xl font-bold tracking-tight tabular-nums">
-          {value}
-        </div>
+    <div className="home-stat rounded-xl border bg-card p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1.5 text-3xl font-bold tracking-tight tabular-nums">
+        {value}
       </div>
     </div>
   )

@@ -111,7 +111,7 @@ export function Sidebar({
 
       {/* Page tree */}
       <nav className="flex-1 overflow-y-auto p-2">
-        <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">
           页面
         </div>
         {tree.length === 0 ? (

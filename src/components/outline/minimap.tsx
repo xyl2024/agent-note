@@ -165,7 +165,7 @@ export function MiniMap({ headings, scrollContainerRef }: Props) {
           )}
         >
           <div className="max-h-[28rem] overflow-y-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="px-2 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">
               大纲 · {headings.length}
             </div>
             <ul className="flex flex-col gap-0.5">
@@ -184,7 +184,7 @@ export function MiniMap({ headings, scrollContainerRef }: Props) {
                         'flex w-full items-center gap-1 rounded-md py-1 pr-2 text-left text-xs transition-colors',
                         INDENT[h.level] ?? 'pl-0',
                         isActive
-                          ? 'text-blue-500 dark:text-blue-400'
+                          ? 'text-accent-foreground font-medium'
                           : 'text-popover-foreground hover:bg-muted',
                       )}
                     >
