@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Settings } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, Plus, Search, Settings } from 'lucide-react'
 import type { Page } from '@/db/schema'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -22,6 +22,9 @@ type Props = {
   onSelectAction: (id: string) => void
   onPagesChangedAction: () => Promise<void>
   onOpenSearchAction: () => void
+  // 侧栏折叠状态（true = 折叠成图标条）
+  collapsed: boolean
+  onCollapsedChangeAction: (collapsed: boolean) => void
 }
 
 // 树形节点
@@ -53,6 +56,8 @@ export function Sidebar({
   onSelectAction,
   onPagesChangedAction,
   onOpenSearchAction,
+  collapsed,
+  onCollapsedChangeAction,
 }: Props) {
   const tree = useMemo(() => buildTree(pages), [pages])
 
@@ -69,15 +74,46 @@ export function Sidebar({
     onSelectAction(page.id)
   }
 
+  // 折叠状态：只剩图标条（顶部的 Brand + 展开按钮），其余内容隐藏
+  if (collapsed) {
+    return (
+      <aside className="flex h-full w-12 shrink-0 flex-col items-center border-r bg-sidebar text-sidebar-foreground">
+        <div className="flex flex-col items-center gap-1 py-3">
+          <Link href="/" aria-label="返回首页">
+            <BrandIcon className="h-6 w-6" />
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="展开侧栏"
+            onClick={() => onCollapsedChangeAction(false)}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </aside>
+    )
+  }
+
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* Workspace header */}
-      <div className="flex items-center justify-between px-3 py-3">
+      <div className="flex items-center justify-between gap-1 px-3 py-3">
         <Link href="/" className="flex items-center gap-2">
           <BrandIcon className="h-6 w-6" />
           <span className="text-sm font-semibold">Agent Note</span>
         </Link>
-        <ThemeToggle />
+        <div className="flex items-center">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="折叠侧栏"
+            onClick={() => onCollapsedChangeAction(true)}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <Separator />

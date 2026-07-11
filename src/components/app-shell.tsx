@@ -59,6 +59,19 @@ export function AppShell({ initialPages, initialPageId, initialStats }: Props) {
   const [createDialog, setCreateDialog] = useState<CreateDialogState>(null)
   const [headings, setHeadings] = useState<HeadingItem[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
+  // 侧栏折叠状态：SSR / 首次渲染固定展开，避免 hydration mismatch；
+  // mounted 后再从 localStorage 恢复用户偏好（与 theme-toggle 的 mounted 模式一致）
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    if (localStorage.getItem('sidebar-collapsed') === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 同 theme-toggle.tsx:SSR 兼容必须延后到 mounted 后读 localStorage
+      setSidebarCollapsed(true)
+    }
+  }, [])
+  const setSidebarCollapsedAction = useCallback((v: boolean) => {
+    setSidebarCollapsed(v)
+    localStorage.setItem('sidebar-collapsed', String(v))
+  }, [])
   const editorScrollRef = useRef<HTMLElement | null>(null)
   const editorRef = useRef<EditorHandle | null>(null)
 
@@ -211,6 +224,8 @@ export function AppShell({ initialPages, initialPageId, initialStats }: Props) {
         onSelectAction={handleSelectAction}
         onPagesChangedAction={refreshPages}
         onOpenSearchAction={() => setSearchOpen(true)}
+        collapsed={sidebarCollapsed}
+        onCollapsedChangeAction={setSidebarCollapsedAction}
       />
       <main
         ref={editorScrollRef}
