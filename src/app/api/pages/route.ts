@@ -14,18 +14,12 @@ export async function GET(request: NextRequest) {
   const title = request.nextUrl.searchParams.get('title')?.trim() ?? ''
 
   // 模糊搜索：有 title 参数就过滤；空字符串视为列出全部
+  // 注：返回全字段（不带白名单），与 SSR 的 db.select().from(pages) 一致，
+  // 避免客户端 refreshPages() 后丢失 isFavorite/favoritedAt 等字段。
+  // 搜索分支只需要 title/icon 等展示字段，但全字段代价可忽略，统一更安全。
   if (title) {
   const rows = await db
-    .select({
-      id: pages.id,
-      parentId: pages.parentId,
-      title: pages.title,
-      slug: pages.slug,
-      iconType: pages.iconType,
-      iconValue: pages.iconValue,
-      createdAt: pages.createdAt,
-      updatedAt: pages.updatedAt,
-    })
+    .select()
     .from(pages)
     .where(like(pages.title, `%${title}%`))
     .orderBy(desc(pages.updatedAt))
@@ -34,16 +28,7 @@ export async function GET(request: NextRequest) {
 }
 
 const rows = await db
-    .select({
-      id: pages.id,
-      parentId: pages.parentId,
-      title: pages.title,
-      slug: pages.slug,
-      iconType: pages.iconType,
-      iconValue: pages.iconValue,
-      createdAt: pages.createdAt,
-      updatedAt: pages.updatedAt,
-    })
+    .select()
     .from(pages)
     .orderBy(desc(pages.updatedAt))
 
