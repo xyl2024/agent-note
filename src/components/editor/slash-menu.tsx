@@ -107,6 +107,19 @@ export const SLASH_ITEMS: SlashItem[] = [
       editor.chain().focus().deleteRange(range).setHorizontalRule().run()
     },
   },
+  {
+    title: '表格',
+    description: '▦ 3×3 对比表',
+    keywords: ['table', '表格', '对比', 'grid'],
+    command: ({ editor, range }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+        .run()
+    },
+  },
 ]
 
 export type SlashMenuRef = {

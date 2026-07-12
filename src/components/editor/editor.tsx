@@ -28,6 +28,7 @@ import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
 import { ExternalImageDialog } from './external-image-dialog'
 import { ImageBubbleMenu } from './image-bubble-menu'
+import { TableBubbleMenu } from './table-bubble-menu'
 import { inferImageKind } from '@/lib/markdown/image-url'
 import { cn } from '@/lib/utils'
 import { useEditorScrollFollow } from './use-editor-scroll-follow'
@@ -529,6 +530,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           onRequestEditAction={openImageEditDialogAction}
         />
       )}
+
+      {/* 光标在表格内时浮出 BubbleMenu（行/列插入删除 + 表头切换） */}
+      {editor && <TableBubbleMenu editor={editor} />}
 
       {/* 外链图片 dialog（slash menu 插入 / BubbleMenu 改 alt/改 src 复用） */}
       <ExternalImageDialog
