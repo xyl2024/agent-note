@@ -154,22 +154,31 @@
 }
 
 .tiptap pre {
-  --code-block-background: oklch(0.985 0.004 255);
-  --code-block-foreground: oklch(0.22 0.015 260);
-  --code-block-border: color-mix(in oklch, var(--border) 70%, transparent);
-  --code-header-background: color-mix(in oklch, var(--muted) 72%, var(--background));
+  /* macOS 窗口风：纯白代码区 + 浅灰 header + 三圆点 */
+  --code-block-background: #ffffff;
+  --code-block-foreground: oklch(0.25 0.015 260);
+  --code-block-border: oklch(0.9 0.005 260);
+  /* macOS 标题栏浅灰（接近 system #ececec） */
+  --code-header-background: oklch(0.965 0.003 260);
+  --code-header-foreground: oklch(0.45 0.01 260);
   --code-selection-background: color-mix(in oklch, var(--primary) 18%, transparent);
-  --code-token-comment: oklch(0.56 0.018 260);
-  --code-token-red: oklch(0.55 0.16 25);
-  --code-token-orange: oklch(0.58 0.13 62);
-  --code-token-green: oklch(0.45 0.13 145);
-  --code-token-blue: oklch(0.48 0.14 255);
-  --code-token-purple: oklch(0.5 0.13 300);
-  --code-token-cyan: oklch(0.5 0.11 205);
+  /* 白底加深一档 token 颜色，保证对比度 */
+  --code-token-comment: oklch(0.55 0.015 260);
+  --code-token-red: oklch(0.5 0.16 25);
+  --code-token-orange: oklch(0.55 0.13 55);
+  --code-token-green: oklch(0.42 0.13 145);
+  --code-token-blue: oklch(0.42 0.14 255);
+  --code-token-purple: oklch(0.45 0.13 300);
+  --code-token-cyan: oklch(0.45 0.11 205);
   background: var(--code-block-background);
   color: var(--code-block-foreground);
   border: 1px solid var(--code-block-border);
-  border-radius: 0.5rem;
+  /* macOS 圆角 + 多层柔和阴影（窗口悬浮感） */
+  border-radius: 0.625rem;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 6px 20px rgba(15, 23, 42, 0.06);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.875rem;
   overflow: hidden;
@@ -177,29 +186,55 @@
   position: relative;
 }
 .dark .tiptap pre {
-  --code-block-background: oklch(0.19 0.012 260);
+  /* 暗色也保留 macOS 风格：深灰窗口 + 深灰标题栏 + 三圆点 */
+  --code-block-background: oklch(0.2 0.012 260);
   --code-block-foreground: oklch(0.88 0.01 260);
-  --code-block-border: color-mix(in oklch, var(--border) 82%, transparent);
-  --code-header-background: oklch(0.23 0.012 260);
-  --code-selection-background: color-mix(in oklch, var(--primary) 20%, transparent);
-  --code-token-comment: oklch(0.67 0.02 260);
+  --code-block-border: oklch(0.28 0.012 260);
+  --code-header-background: oklch(0.25 0.012 260);
+  --code-header-foreground: oklch(0.7 0.01 260);
+  --code-selection-background: color-mix(in oklch, var(--primary) 22%, transparent);
+  --code-token-comment: oklch(0.6 0.018 260);
   --code-token-red: oklch(0.76 0.16 24);
   --code-token-orange: oklch(0.78 0.13 65);
   --code-token-green: oklch(0.76 0.13 150);
   --code-token-blue: oklch(0.76 0.12 250);
   --code-token-purple: oklch(0.78 0.12 310);
   --code-token-cyan: oklch(0.78 0.11 205);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 6px 20px rgba(0, 0, 0, 0.35);
 }
 .tiptap pre .code-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
+  justify-content: flex-end; /* lang + copy-btn 一起靠右聚拢 */
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem 0.5rem 3.5rem; /* 左侧给 traffic lights 留位 */
   border-bottom: 1px solid var(--code-block-border);
   background-color: var(--code-header-background);
+  color: var(--code-header-foreground);
   font-size: 0.75rem;
-  color: var(--muted-foreground);
   user-select: none;
+  position: relative;
+  min-height: 2rem;
+}
+/* macOS 窗口左上角三个 traffic lights：红 / 黄 / 绿，box-shadow 复用同一元素 */
+.tiptap pre .code-header::before {
+  content: '';
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ff5f57;
+  box-shadow:
+    18px 0 0 0 #febc2e,
+    36px 0 0 0 #28c840;
+  /* 极细 ring 让圆点在白/灰 header 上更立体 */
+  outline: 0.5px solid rgba(0, 0, 0, 0.08);
 }
 .tiptap pre .code-header .lang {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
@@ -210,6 +245,7 @@
 .tiptap pre .code-header .lang-trigger {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
   background: transparent;
   border: none;
@@ -224,15 +260,68 @@
   outline: 1px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* -----------------------------------------------------------------------------
+   语言选择 popover（搜索 + 自定义项）
+   - popover 用 Portal 渲染在编辑器外，所以不挂 .tiptap 选择器
+   - 配色沿用 shadcn 的 --popover / --popover-foreground / --muted / --primary
+   ----------------------------------------------------------------------------- */
+.lang-popover {
+  /* 默认 PopoverContent 圆角 8px，匹配 macOS 风格的 10px 让窗口感连贯 */
+  border-radius: 0.625rem;
+}
+.lang-popover-list {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+.lang-popover-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: 0;
+  background: transparent;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  color: var(--popover-foreground);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 80ms ease, color 80ms ease;
+}
+.lang-popover-item-custom {
+  /* 自定义项：用 primary 着色把它从列表项中区分出来 */
+  color: var(--primary);
+  font-style: italic;
+}
+.lang-popover-item-active,
+.lang-popover-item:hover {
+  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+.lang-popover-item-active.lang-popover-item-custom,
+.lang-popover-item.lang-popover-item-custom:hover {
+  /* 自定义项激活态用更强一点的 primary 染底，保持可读性 */
+  background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+.lang-popover-empty {
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
 .tiptap pre .code-header .copy-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  color: var(--muted-foreground);
+  border-radius: 0.375rem;
+  color: var(--code-header-foreground);
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.7;
   transition: opacity 100ms ease, background-color 100ms ease, color 100ms ease;
   font-family: var(--font-sans);
   background: transparent;
@@ -240,12 +329,10 @@
   font-size: 0.75rem;
   line-height: 1;
 }
-.tiptap pre:hover .code-header .copy-btn,
+.tiptap pre .code-header .copy-btn:hover,
 .tiptap pre .code-header .copy-btn:focus-visible {
   opacity: 1;
-}
-.tiptap pre .code-header .copy-btn:hover {
-  background-color: var(--background);
+  background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
   color: var(--foreground);
 }
 .tiptap pre .code-header .copy-btn svg {
@@ -339,11 +426,10 @@
   color: var(--code-token-red);
 }
 .tiptap code {
-  background: color-mix(in oklch, var(--muted) 72%, var(--background));
-  color: color-mix(in oklch, var(--foreground) 86%, var(--primary));
-  border: 1px solid color-mix(in oklch, var(--border) 58%, transparent);
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  background: color-mix(in oklch, var(--muted), var(--foreground) 10%);
+  color: var(--foreground);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.375rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.875em;
   font-weight: 500;
@@ -354,6 +440,7 @@
   padding: 0.75rem 1rem;
   font-size: inherit;
   font-weight: inherit;
+  border-radius: 0;
 }
 
 /* -----------------------------------------------------------------------------
