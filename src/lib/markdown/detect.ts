@@ -7,7 +7,9 @@
 export function looksLikeMarkdown(text: string): boolean {
   if (!text) return false
   // 块级特征
-  const blockRe = /(^|\n)(#{1,6} |\*{3,}|-{3,}|`{3,}|>\s|[-*+]\s+\[[ xX]\]|[-*+]\s|\d+\.\s)/
+  // GFM table 特征要求至少 3 个 `|`（header row 通常首尾 + 中间分隔各一个），
+  // 避免普通段落里偶然出现 `|` 字符就被误判。
+  const blockRe = /(^|\n)(#{1,6} |\*{3,}|-{3,}|`{3,}|>\s|[-*+]\s+\[[ xX]\]|[-*+]\s|\d+\.\s|\|[^\n]*\|[^\n]*\|)/
   if (blockRe.test(text)) return true
   // 行内 mark 特征（image 语法 `![alt](url)` 与 link 同形，加在前面更早命中）
   const inlineRe = /(!\[[^\]]*\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\])/

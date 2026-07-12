@@ -386,6 +386,123 @@ function parseBlockquote(lines: string[], startIdx: number): { node: PMNode; con
 }
 
 // -----------------------------------------------------------------------------
+// GFM Table
+//
+// 识别：当前行含 `|`，且下一行是 alignment row（`:---` / `:---:` / `---:`）
+// 收集：alignment row 之后所有含 `|` 的连续行作为 data rows
+// 结构：table → tableRow[ tableHeader(tableHeader) | tableCell ]
+//       cell 内的 inline 内容走 tokenizeInline；空 cell 走空 paragraph
+//
+// 不支持：嵌套表格（GFM 也不允许）；data row 列数与 header 不一致时容错补空
+// -----------------------------------------------------------------------------
+
+/** 把一行表格按 `|` 切分（处理首尾 `|` 和 `\|` 转义） */
+function splitTableRow(line: string): string[] {
+  let s = line.trim()
+  // GFM 允许 `| a | b |` 或 `a | b` 两种首尾风格，统一去掉首尾的 |
+  if (s.startsWith('|')) s = s.slice(1)
+  if (s.endsWith('|')) s = s.slice(0, -1)
+  const cells: string[] = []
+  let cur = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '\\' && s[i + 1] === '|') {
+      cur += '|'
+      i++
+    } else if (ch === '|') {
+      cells.push(cur.trim())
+      cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  cells.push(cur.trim())
+  return cells
+}
+
+/** 解析 alignment row 每列的对齐（'left' | 'center' | 'right' | null） */
+function parseAlignments(line: string): (string | null)[] {
+  let s = line.trim()
+  if (s.startsWith('|')) s = s.slice(1)
+  if (s.endsWith('|')) s = s.slice(0, -1)
+  return s.split('|').map((part) => {
+    const t = part.trim()
+    const isLeft = t.startsWith(':')
+    const isRight = t.endsWith(':')
+    if (isLeft && isRight) return 'center'
+    if (isRight) return 'right'
+    if (isLeft) return 'left'
+    return null // 默认 left，Tiptap 不写 attrs 即可
+  })
+}
+
+/** 识别 alignment row（整行由 `|` 分隔的 `:?-+:?` 单元组成）
+ *  用 `*` 重复：允许 1 列表格（单列也是合法 GFM） */
+const RE_TABLE_ALIGN_ROW = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
+
+function parseTable(
+  lines: string[],
+  startIdx: number,
+): { node: PMNode; consumed: number } | null {
+  const headerLine = lines[startIdx]
+  if (!headerLine.includes('|')) return null
+  if (startIdx + 1 >= lines.length) return null
+  const alignLine = lines[startIdx + 1]
+  if (!RE_TABLE_ALIGN_ROW.test(alignLine)) return null
+
+  const alignments = parseAlignments(alignLine)
+  const colCount = alignments.length
+
+  const headerCells = splitTableRow(headerLine)
+  // 列数不匹配 → 不是合法 GFM table（交回 paragraph 处理）
+  if (headerCells.length !== colCount) return null
+
+  // 收集 data rows
+  const dataRows: string[][] = []
+  let i = startIdx + 2
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.trim() === '' || !line.includes('|')) break
+    const cells = splitTableRow(line)
+    while (cells.length < colCount) cells.push('')
+    cells.length = colCount
+    dataRows.push(cells)
+    i++
+  }
+
+  const buildCell = (
+    cellText: string,
+    align: string | null,
+    header: boolean,
+  ): PMNode => {
+    // align 为 null（默认左对齐）时不写 attrs，避免脏数据
+    // 用 spread 让 key 顺序固定为 type → attrs → content（与测试 fixture / 序列化输出一致）
+    return {
+      type: header ? 'tableHeader' : 'tableCell',
+      ...(align ? { attrs: { textAlign: align } } : {}),
+      content: [{ type: 'paragraph', content: tokenizeInline(cellText) }],
+    }
+  }
+
+  const headerRow: PMNode = {
+    type: 'tableRow',
+    content: headerCells.map((text, idx) =>
+      buildCell(text, alignments[idx], true),
+    ),
+  }
+
+  const dataRowNodes: PMNode[] = dataRows.map((row) => ({
+    type: 'tableRow',
+    content: row.map((text, idx) => buildCell(text, alignments[idx], false)),
+  }))
+
+  return {
+    node: { type: 'table', content: [headerRow, ...dataRowNodes] },
+    consumed: i - startIdx,
+  }
+}
+
+// -----------------------------------------------------------------------------
 // 入口
 // -----------------------------------------------------------------------------
 
@@ -506,6 +623,18 @@ function parseMarkdown(lines: string[], fromIdx: number): PMDoc {
       continue
     }
 
+    // GFM table：当前行含 `|` 且下一行是 alignment row
+    // 必须放在 blockquote 之前，但 RE_HR / RE_HEADING 已经在前面过滤掉（header 行
+    // 通常不会恰好匹配 `---` 或 `#`）
+    if (line.includes('|')) {
+      const tableResult = parseTable(lines, i)
+      if (tableResult) {
+        blocks.push(tableResult.node)
+        i += tableResult.consumed
+        continue
+      }
+    }
+
     // blockquote
     if (/^>\s?/.test(line)) {
       const { node, consumed } = parseBlockquote(lines, i)
@@ -534,6 +663,8 @@ function parseMarkdown(lines: string[], fromIdx: number): PMDoc {
         RE_HEADING.test(lines[i]) ||
         RE_FENCE.test(lines[i]) ||
         /^>\s?/.test(lines[i]) ||
+        // alignment row（独立成行的 `| --- | --- |`）也要停，否则会被吞进 paragraph
+        RE_TABLE_ALIGN_ROW.test(lines[i]) ||
         detectListKind(lines[i].slice(getIndent(lines[i])))
       ) {
         break

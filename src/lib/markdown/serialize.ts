@@ -89,6 +89,28 @@ function renderImage(node: PMNode): string {
   return `![${alt}](${src})`
 }
 
+/** table cell → GFM table cell 字符串
+ *  - 复用 renderInline 处理 cell 内 inline（marks / text / image）
+ *  - escape `|` 为 `\|`，把换行替换成空格（GFM table cell 不支持真换行） */
+function renderTableCell(node: PMNode): string {
+  const raw = renderInline(node.content)
+  return raw.replace(/\|/g, '\\|').replace(/\n/g, ' ')
+}
+
+/** 把 textAlign 字符串转为 GFM alignment 单元（左 :--- / 中 :---: / 右 ---: / 默认 ---） */
+function alignCell(textAlign: string | null | undefined): string {
+  switch (textAlign) {
+    case 'left':
+      return ':---'
+    case 'center':
+      return ':---:'
+    case 'right':
+      return '---:'
+    default:
+      return '---'
+  }
+}
+
 /** 转义 markdown 里有特殊意义的字符（仅在 paragraph 内的纯文本里需要） */
 function escapeText(text: string): string {
   return text
@@ -151,6 +173,34 @@ function renderBlock(node: PMNode, depth = 0): string {
       return `${indent}---`
     case 'image':
       return `${indent}${renderImage(node)}`
+    case 'table': {
+      const rows = node.content ?? []
+      if (rows.length === 0) return ''
+      // 列数 = 第一行 cell 数
+      const headerRow = rows[0]
+      const colCount = (headerRow.content ?? []).length
+      if (colCount === 0) return ''
+      // 对齐：每列读第一行的 cell attrs（tableHeader 与 tableCell 都共享 textAlign）
+      const alignments = (headerRow.content ?? []).map((c) => {
+        const attrs = (c.attrs ?? {}) as { textAlign?: string | null }
+        return attrs.textAlign ?? null
+      })
+      const lines: string[] = []
+      // header row
+      const headerCells = (headerRow.content ?? []).map(renderTableCell)
+      lines.push(`| ${headerCells.join(' | ')} |`)
+      // alignment row
+      lines.push(`| ${alignments.map(alignCell).join(' | ')} |`)
+      // data rows
+      for (let r = 1; r < rows.length; r++) {
+        const dataCells = (rows[r].content ?? []).map(renderTableCell)
+        // 不足补空；超出截断（防御 schema 异常）
+        while (dataCells.length < colCount) dataCells.push('')
+        dataCells.length = colCount
+        lines.push(`| ${dataCells.join(' | ')} |`)
+      }
+      return lines.join('\n')
+    }
     default:
       // 未知块降级为段落
       return `${indent}${renderInline(node.content)}`
