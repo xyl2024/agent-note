@@ -20,6 +20,9 @@ export type ImagePreviewItem = {
   src: string
   alt: string | null
   title: string | null
+  // 区分本地/外链图：本地（粘贴/拖拽/文件选择上传）默认 100% 实际大小，
+  // 外链图默认 fit 适应视口（外链图尺寸不可控，fit 保险）。
+  kind: 'local' | 'external'
 }
 
 // Lightbox 的打开状态：当前文档里所有图片（按 doc 顺序）+ 当前显示的 index。

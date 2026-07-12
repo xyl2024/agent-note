@@ -112,6 +112,8 @@ export function ImageNodeView({ node, selected, updateAttributes, getPos, editor
                 src: n.attrs.src ?? '',
                 alt: n.attrs.alt ?? null,
                 title: n.attrs.title ?? null,
+                // 老 JSON 可能缺 kind（kind 默认 'local'，见 extensions.ts addAttributes）
+                kind: (n.attrs.kind as 'local' | 'external' | undefined) ?? 'local',
               })
             }
           })

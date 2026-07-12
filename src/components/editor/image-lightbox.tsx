@@ -89,7 +89,12 @@ export function ImageLightbox({ payload, onCloseAction, onIndexChangeAction }: P
       if (cancelled) return
       const f = calcFitScale(probe.naturalWidth, probe.naturalHeight)
       setFitScale(f)
-      setScale(f)
+      // 默认缩放策略：
+      //   - 本地图（粘贴/拖拽/文件上传）→ 100% 实际像素大小
+      //     用户主动上传的内容通常希望看清每个像素（截图细节、UI 原型等）
+      //   - 外链图 → fit 适应视口（尺寸不可控，fit 保险）
+      const defaultScale = current.kind === 'local' ? 1 : f
+      setScale(defaultScale)
       setTranslate({ x: 0, y: 0 })
     }
     probe.onerror = () => {
