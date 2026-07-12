@@ -35,7 +35,7 @@ export const MAX_MERMAID_SOURCE_LENGTH = 50 * 1024
 // 主题色板：hex 字符串，khroma 100% 接受。明/暗各一套，跟项目视觉靠近但不完美匹配。
 // -----------------------------------------------------------------------------
 const LIGHT_THEME: Record<string, string> = {
-  background: '#FCFBF8',
+  background: 'transparent',
   primaryColor: '#FFFFFF',
   primaryTextColor: '#252525',
   primaryBorderColor: '#EBE9E3',
@@ -44,7 +44,7 @@ const LIGHT_THEME: Record<string, string> = {
   tertiaryColor: '#F7F6F3',
 }
 const DARK_THEME: Record<string, string> = {
-  background: '#252422',
+  background: 'transparent',
   primaryColor: '#34302F',
   primaryTextColor: '#F8F7F4',
   primaryBorderColor: 'rgba(255, 255, 255, 8%)',
