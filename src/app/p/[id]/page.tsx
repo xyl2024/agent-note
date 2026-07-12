@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import type { Metadata } from 'next'
 import { AppShell } from '@/components/app-shell'
@@ -7,7 +7,7 @@ import { pages } from '@/db/schema'
 
 // -----------------------------------------------------------------------------
 // /p/[id] — 单页面路由（SSR）
-// - 校验页面存在，不存在 → notFound()（Next.js 自动 404 页面）
+// - 校验页面存在，不存在 → 重定向到首页 /
 // - 拉全部页面给 Sidebar 建树
 // - 交给 AppShell，由客户端的 useParams / useRouter 接管后续导航
 // -----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ export default async function PageById({
     .from(pages)
     .where(eq(pages.id, id))
     .limit(1)
-  if (target.length === 0) notFound()
+  if (target.length === 0) redirect('/')
 
   const allPages = await db.select().from(pages)
 
