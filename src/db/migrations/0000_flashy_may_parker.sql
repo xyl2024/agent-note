@@ -30,9 +30,12 @@ CREATE TABLE `pages` (
 	`slug` text NOT NULL,
 	`icon_type` text,
 	`icon_value` text,
+	`is_favorite` integer DEFAULT false NOT NULL,
+	`favorited_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE INDEX `pages_parent_idx` ON `pages` (`parent_id`);--> statement-breakpoint
-CREATE INDEX `pages_updated_idx` ON `pages` (`updated_at`);
+CREATE INDEX `pages_updated_idx` ON `pages` (`updated_at`);--> statement-breakpoint
+CREATE INDEX `pages_favorite_idx` ON `pages` (`is_favorite`,`favorited_at`);

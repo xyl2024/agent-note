@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "fc515642-56f0-4ff1-91ec-86830d192738",
+  "id": "11692364-fd67-4a98-aa3a-6949bf736c92",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "assets": {
@@ -207,9 +207,31 @@
           "notNull": true,
           "autoincrement": false
         },
-        "icon": {
-          "name": "icon",
+        "icon_type": {
+          "name": "icon_type",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "icon_value": {
+          "name": "icon_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_favorite": {
+          "name": "is_favorite",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "favorited_at": {
+          "name": "favorited_at",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -241,6 +263,14 @@
           "name": "pages_updated_idx",
           "columns": [
             "updated_at"
+          ],
+          "isUnique": false
+        },
+        "pages_favorite_idx": {
+          "name": "pages_favorite_idx",
+          "columns": [
+            "is_favorite",
+            "favorited_at"
           ],
           "isUnique": false
         }
