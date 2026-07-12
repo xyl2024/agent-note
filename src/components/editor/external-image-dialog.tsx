@@ -85,6 +85,11 @@ export function ExternalImageDialog({
       onOpenChange={(o) => {
         if (!o) onOpenChangeAction(false)
       }}
+      // 阻止 backdrop / 外部点击关闭 dialog：
+      // 从 image BubbleMenu 触发打开时，base-ui Backdrop 是 fixed inset-0 z-50，
+      // 会覆盖在 bubble menu 按钮上方；mouseup 命中 Backdrop 会触发 outside press
+      // 关闭 dialog，导致 dialog 立刻消失。用户仍可通过取消/确认按钮或 ESC 关闭。
+      disablePointerDismissal
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
