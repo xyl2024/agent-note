@@ -14,12 +14,11 @@ import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Input } from '@/components/ui/input'
 import { Check, ChevronDown, Copy } from 'lucide-react'
 import { createLowlight } from 'lowlight'
 import {
@@ -306,6 +305,12 @@ const MermaidPreview = forwardRef<MermaidPreviewHandle, MermaidPreviewProps>(fun
 
 export function CodeBlockView(props: NodeViewProps) {
   const [copied, setCopied] = useState(false)
+  // 语言选择 popover 的状态：可搜索可自定义（见下方注释）
+  const [langOpen, setLangOpen] = useState(false)
+  const [langQuery, setLangQuery] = useState('')
+  const [highlightedIdx, setHighlightedIdx] = useState(0)
+  const langInputRef = useRef<HTMLInputElement>(null)
+
   const lang = (props.node.attrs as { language?: string | null }).language ?? ''
   const code = props.node.textContent
   const isMermaid = lang === 'mermaid'
@@ -313,6 +318,84 @@ export function CodeBlockView(props: NodeViewProps) {
   const mermaidPreviewRef = useRef<MermaidPreviewHandle>(null)
 
   const displayLang = lang || '纯文本'
+
+  // 语言选项：按 query 过滤；query 非空且没有完全匹配时，顶部追加"使用 '<query>'"作为自定义项
+  // "纯文本"（value=null）只在 query 为空时出现 —— 否则用户清空即可切回纯文本。
+  const trimmedQuery = langQuery.trim()
+  const lowerQuery = trimmedQuery.toLowerCase()
+  const langItems = useMemo<Array<LanguageOption & { custom?: boolean }>>(
+    () => {
+      const result: Array<LanguageOption & { custom?: boolean }> = []
+      if (lowerQuery) {
+        const exact = LANGUAGE_OPTIONS.some((o) => o.value === lowerQuery)
+        if (!exact) {
+          result.push({ value: lowerQuery, label: `使用 “${trimmedQuery}”`, custom: true })
+        }
+      }
+      for (const o of LANGUAGE_OPTIONS) {
+        if (o.value == null) {
+          if (!lowerQuery) result.push(o)
+          continue
+        }
+        if (
+          !lowerQuery ||
+          o.label.toLowerCase().includes(lowerQuery) ||
+          o.value.includes(lowerQuery)
+        ) {
+          result.push(o)
+        }
+      }
+      return result
+    },
+    [lowerQuery, trimmedQuery],
+  )
+
+  // query 或 popover 开关变化 → 高亮归零，避免越界
+  useEffect(() => {
+    setHighlightedIdx(0)
+  }, [langQuery, langOpen])
+
+  // 打开 popover → 把 input 预填当前 lang、聚焦并全选（方便立即覆盖输入）
+  useEffect(() => {
+    if (!langOpen) return
+    setLangQuery(lang ?? '')
+    const id = window.requestAnimationFrame(() => {
+      const el = langInputRef.current
+      if (el) {
+        el.focus()
+        el.select()
+      }
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [langOpen, lang])
+
+  const handleLangSelect = (value: string | null) => {
+    props.updateAttributes({ language: value })
+    setLangOpen(false)
+  }
+
+  // 键盘操作：↑↓ 移动高亮，Enter 选中，Esc 关闭
+  const handleLangKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIdx((i) =>
+        langItems.length === 0 ? 0 : Math.min(i + 1, langItems.length - 1),
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIdx((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (langItems.length === 0) {
+        handleLangSelect(null)
+        return
+      }
+      handleLangSelect((langItems[highlightedIdx] ?? langItems[0]).value)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setLangOpen(false)
+    }
+  }
 
   const handleCopy = async () => {
     try {
@@ -350,34 +433,73 @@ export function CodeBlockView(props: NodeViewProps) {
       onBlurCapture={handleBlurCapture}
     >
       <div className="code-header" contentEditable={false}>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="lang lang-trigger"
-            // 阻止按钮 mousedown 时获得焦点 —— ProseMirror 会把 blur 当成 selectionChange，
-            // 不拦截会引起编辑器选区闪烁。镜像 image-bubble-menu.tsx:35-38 的处理。
-            onMouseDown={(event) => event.preventDefault()}
-            aria-label="切换代码块语言"
+        <Popover open={langOpen} onOpenChange={setLangOpen}>
+          <PopoverTrigger
+            // Base UI 的 trigger 走 render 注入 onClick/data-state 等，
+            // 我们套一个 button 拿到自己 .lang-trigger 的样式钩子
+            render={(triggerProps) => (
+              <button
+                {...triggerProps}
+                className="lang lang-trigger"
+                // 阻止按钮 mousedown 时获得焦点 —— ProseMirror 会把 blur 当成 selectionChange，
+                // 不拦截会引起编辑器选区闪烁。镜像 image-bubble-menu.tsx:35-38 的处理。
+                onMouseDown={(event) => event.preventDefault()}
+                aria-label="切换代码块语言"
+              >
+                <ChevronDown className="size-3 opacity-60" />
+                <span>{displayLang}</span>
+              </button>
+            )}
+          />
+          <PopoverContent
+            align="start"
+            side="bottom"
+            sideOffset={4}
+            className="lang-popover w-56 p-1"
+            // 拦截 keystroke 不让 Tiptap keymap 抢走（保留全局快捷键对 popover 元素外的通行）
+            onKeyDown={(event) => event.stopPropagation()}
           >
-            <ChevronDown className="size-3 opacity-60" />
-            <span>{displayLang}</span>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="bottom" sideOffset={4}>
-            <DropdownMenuRadioGroup
-              // RadioGroup 不直接支持 null，用空串当"纯文本"哨兵，onValueChange 里再转回 null。
-              value={lang ?? ''}
-              onValueChange={(next) => {
-                const newLang = next === '' ? null : next
-                props.updateAttributes({ language: newLang })
-              }}
-            >
-              {LANGUAGE_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value ?? 'plain'} value={option.value ?? ''}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <Input
+              ref={langInputRef}
+              value={langQuery}
+              onChange={(event) => setLangQuery(event.target.value)}
+              onKeyDown={handleLangKeyDown}
+              placeholder="搜索或输入自定义…"
+              autoComplete="off"
+              spellCheck={false}
+              className="h-7 mb-1 text-xs"
+              aria-label="搜索或输入自定义语言"
+            />
+            <div role="listbox" className="lang-popover-list">
+              {langItems.length === 0 ? (
+                <div className="lang-popover-empty">无匹配</div>
+              ) : (
+                langItems.map((item, idx) => {
+                  const highlighted = idx === highlightedIdx
+                  return (
+                    <button
+                      key={`${item.value ?? 'plain'}-${idx}`}
+                      type="button"
+                      role="option"
+                      aria-selected={highlighted}
+                      onMouseDown={(event) => {
+                        // 防止 input 失焦、防止 Base UI 把这次按下当 outside 点击关闭 popover
+                        event.preventDefault()
+                      }}
+                      onMouseEnter={() => setHighlightedIdx(idx)}
+                      onClick={() => handleLangSelect(item.value)}
+                      className={`lang-popover-item${highlighted ? ' lang-popover-item-active' : ''}${
+                        item.custom ? ' lang-popover-item-custom' : ''
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
         <button
           type="button"
           className="copy-btn"
@@ -397,7 +519,7 @@ export function CodeBlockView(props: NodeViewProps) {
       </div>
       {isMermaid ? (
         // mermaidPreviewRef 走 forwardRef + useImperativeHandle 暴露 rerender()。
-        // 强转吃 TS：JSX 上 forwardRef 组件的可空 ref 类型推断偶尔会卡。
+        // 强转吃 TS：JSX 上 forwardRef 组件的可选 ref 类型推断偶尔会卡。
         <MermaidPreview ref={mermaidPreviewRef as unknown as Ref<MermaidPreviewHandle>} source={code} nodePos={nodePos} />
       ) : null}
     </NodeViewWrapper>
