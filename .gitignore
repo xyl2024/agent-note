@@ -19,6 +19,7 @@ build/
 # Build caches
 .turbo/
 *.tsbuildinfo
+.astro/
 
 # Local data (MVP 阶段本地测试数据，无需提交)
 data/*.db
