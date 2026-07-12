@@ -13,7 +13,14 @@ import sql from 'highlight.js/lib/languages/sql'
 import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import yaml from 'highlight.js/lib/languages/yaml'
-import { Check, Copy } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Check, ChevronDown, Copy } from 'lucide-react'
 import { createLowlight } from 'lowlight'
 import { Fragment, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -43,6 +50,25 @@ lowlight.registerAlias({
   xml: ['html', 'svg'],
   yaml: ['yml'],
 })
+
+// UI 层暴露的语言选项 —— 键名必须与上面 createLowlight({...}) 入参对齐；
+// alias（sh/zsh/js/ts/html/svg/yml 等）由 lowlight.registerAlias 兜底，这里只列规范名。
+// null 表示「纯文本」，对应 codeBlock.attrs.language = null。
+type LanguageOption = { value: string | null; label: string }
+const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
+  { value: null, label: '纯文本' },
+  { value: 'bash', label: 'Bash' },
+  { value: 'css', label: 'CSS' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'json', label: 'JSON' },
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'python', label: 'Python' },
+  { value: 'shell', label: 'Shell' },
+  { value: 'sql', label: 'SQL' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'xml', label: 'XML / HTML' },
+  { value: 'yaml', label: 'YAML' },
+]
 
 type HighlightNode = ReturnType<typeof lowlight.highlight>['children'][number]
 
@@ -94,7 +120,7 @@ export function CodeBlockView(props: NodeViewProps) {
   const code = props.node.textContent
   const highlightedNodes = useMemo(() => getHighlightedNodes(code, lang), [code, lang])
 
-  const displayLang = lang || 'text'
+  const displayLang = lang || '纯文本'
 
   const handleCopy = async () => {
     try {
@@ -107,7 +133,34 @@ export function CodeBlockView(props: NodeViewProps) {
   return (
     <NodeViewWrapper as="pre" className="code-block-wrapper">
       <div className="code-header" contentEditable={false}>
-        <span className="lang">{displayLang}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="lang lang-trigger"
+            // 阻止按钮 mousedown 时获得焦点 —— ProseMirror 会把 blur 当成 selectionChange，
+            // 不拦截会引起编辑器选区闪烁。镜像 image-bubble-menu.tsx:35-38 的处理。
+            onMouseDown={(event) => event.preventDefault()}
+            aria-label="切换代码块语言"
+          >
+            <ChevronDown className="size-3 opacity-60" />
+            <span>{displayLang}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="bottom" sideOffset={4}>
+            <DropdownMenuRadioGroup
+              // RadioGroup 不直接支持 null，用空串当"纯文本"哨兵，onValueChange 里再转回 null。
+              value={lang ?? ''}
+              onValueChange={(next) => {
+                const newLang = next === '' ? null : next
+                props.updateAttributes({ language: newLang })
+              }}
+            >
+              {LANGUAGE_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value ?? 'plain'} value={option.value ?? ''}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           type="button"
           className="copy-btn"

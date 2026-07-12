@@ -229,6 +229,23 @@
   letter-spacing: 0.025em;
   text-transform: lowercase;
 }
+.tiptap pre .code-header .lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+.tiptap pre .code-header .lang-trigger:focus-visible {
+  opacity: 1;
+  outline: 1px solid var(--ring);
+  outline-offset: 2px;
+}
 .tiptap pre .code-header .copy-btn {
   display: inline-flex;
   align-items: center;
