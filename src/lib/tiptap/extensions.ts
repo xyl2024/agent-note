@@ -21,7 +21,7 @@ import { ImageNodeView } from '@/components/editor/image-node-view'
 // - TaskList/Item：待办列表（不在 StarterKit 默认里）
 // - ImageWithAttrs：自定义 Image（kind/width/height attrs + 防盗链/懒加载属性，详见下方）
 // - Table 4 件套：表格（resizable: true 启用列宽拖拽；单元格仅允许 inline）
-// - HeadingAnchor：注入 # 链接到 heading 末尾，hover 时显示，点击复制 URL hash
+// - HeadingAnchor：给 heading 节点 DOM 写 id（用于 Outline 大纲 scroll spy）
 export function buildExtensions(placeholder: string): Extensions {
   // 自定义 CodeBlock：保留 schema，渲染走 CodeBlockView（顶部 header + 复制按钮）
   // - 打开 enableTabIndentation：让 CodeBlock 内置的 Tab/Shift+Tab 处理（按 tabSize

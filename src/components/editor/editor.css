@@ -59,29 +59,6 @@
 }
 
 /* Heading anchor (# 链接，由 HeadingAnchor extension 注入) */
-.tiptap .heading-anchor {
-  position: absolute;
-  left: -1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: opacity 150ms ease;
-  color: var(--muted-foreground);
-  font-weight: 400;
-  text-decoration: none;
-  cursor: pointer;
-  user-select: none;
-  font-size: 0.875em;
-  line-height: 1;
-}
-.tiptap h1:hover > .heading-anchor,
-.tiptap h2:hover > .heading-anchor,
-.tiptap h3:hover > .heading-anchor {
-  opacity: 1;
-}
-.tiptap .heading-anchor:hover {
-  color: var(--foreground);
-}
 
 /* -----------------------------------------------------------------------------
    Paragraph
