@@ -546,3 +546,70 @@
   cursor: col-resize;
 }
 
+/* -----------------------------------------------------------------------------
+   Mermaid 预览
+   - 紧贴 code-body 下沿，左右继承 wrapper 圆角
+   - 明 / 暗走 CSS 变量
+   - 错误态：左 3px 红色竖条 + 警告文字 + <details> 折叠错误
+   ----------------------------------------------------------------------------- */
+.tiptap pre .mermaid-preview {
+  padding: 1rem 1.25rem;
+  border-top: 1px dashed var(--code-block-border);
+  background-color: var(--code-header-background);
+  font-size: 0.875rem;
+  color: var(--code-block-foreground);
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 2rem;
+}
+.tiptap pre .mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+.tiptap pre .mermaid-preview-status {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.tiptap pre .mermaid-preview--warn {
+  border-top-style: solid;
+  border-top-color: color-mix(in oklch, var(--border) 80%, transparent);
+  color: var(--muted-foreground);
+  justify-content: flex-start;
+}
+.tiptap pre .mermaid-preview--error {
+  display: block;
+  border-top-style: solid;
+  border-top-color: var(--destructive);
+  background-color: color-mix(in oklch, var(--destructive) 6%, var(--code-header-background));
+}
+.tiptap pre .mermaid-preview-error-head {
+  color: var(--destructive);
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+.tiptap pre .mermaid-preview-error-summary {
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  user-select: none;
+}
+.tiptap pre .mermaid-preview-error-summary:hover {
+  color: var(--foreground);
+}
+.tiptap pre .mermaid-preview-error-detail {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  background-color: color-mix(in oklch, var(--background) 70%, transparent);
+  color: var(--destructive);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+

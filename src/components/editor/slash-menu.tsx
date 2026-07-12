@@ -100,6 +100,21 @@ export const SLASH_ITEMS: SlashItem[] = [
     },
   },
   {
+    title: 'Mermaid 图',
+    description: '用 Mermaid 语法画流程图/时序图',
+    keywords: ['mermaid', 'flowchart', 'sequence', 'graph', '图', '流程'],
+    command: ({ editor, range }) => {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        // 先插入默认 java 的 codeBlock，再改 language= mermaid
+        .setCodeBlock()
+        .updateAttributes('codeBlock', { language: 'mermaid' })
+        .run()
+    },
+  },
+  {
     title: '分隔线',
     description: '—————',
     keywords: ['divider', 'hr', '分隔', '分割'],

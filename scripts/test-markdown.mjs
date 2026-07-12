@@ -149,6 +149,21 @@ runSection('docToMarkdown', () => {
     '```js\nconsole.log(1)\n```',
   )
 
+  eqStr('code block mermaid (language passthrough)',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'mermaid' },
+        content: [
+          { type: 'text', text: 'graph LR\nA[用户] --> B{是否登录}' },
+          { type: 'text', text: '\nA -->|是| C' },
+        ],
+      }],
+    }),
+    '```mermaid\ngraph LR\nA[用户] --> B{是否登录}\nA -->|是| C\n```',
+  )
+
   eqStr('blockquote',
     docToMarkdown({
       type: 'doc',
@@ -458,6 +473,18 @@ runSection('markdownToDoc', () => {
     },
   )
 
+  eq('code block mermaid (fence language passthrough)',
+    markdownToDoc('```mermaid\ngraph LR\nA --> B\n```'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'mermaid' },
+        content: [{ type: 'text', text: 'graph LR\nA --> B' }],
+      }],
+    },
+  )
+
   eq('blockquote (lazy continuation = 1 para)',
     markdownToDoc('> hello\n> world'),
     {
@@ -746,6 +773,7 @@ runSection('round-trip stable', () => {
     '- a\n  - a1\n  - a2\n- b',
     '- [x] done\n- [ ] todo',
     '```js\nconsole.log(1)\n```',
+    '```mermaid\ngraph LR\nA --> B\n```',
     '> hello\n> world',
     '---',
     'see [[Foo]] for more',
