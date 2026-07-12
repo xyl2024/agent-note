@@ -1,9 +1,5 @@
 'use client'
 
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
-import type { ThemeProviderProps } from 'next-themes'
-
-// 客户端 ThemeProvider，全局跟随系统，支持 light/dark/system 三档
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
-}
+// ThemeProvider re-export：保持 `import { ThemeProvider } from '@/components/theme-provider'`
+// 这条导入路径稳定不变，layout.tsx 与历史代码无需改动。
+export { ThemeProvider } from './theme/theme-context'

@@ -116,3 +116,18 @@ API（都在 `src/app/api/`，Node runtime）：
 - Markdown 粘贴：`looksLikeMarkdown()` 判定 → `markdownToDoc()` 转 ProseMirror JSON。
 - 图片粘贴/拖拽走 `POST /api/upload`，回填 URL。
 - 保存防抖：`debounce()` → `PUT /api/pages/[id]/blocks` 全量提交块数组。
+
+### 图片节点（`src/components/editor/image-node-view.tsx` + `image-bubble-menu.tsx`）
+
+- **attrs**：`src / alt / title / kind / width / height`
+  - `kind: 'local' | 'external'`，默认 `'local'`（老 JSON 缺失时安全 fallback）
+  - src 协议白名单：http/https（dialog 校验）+ markdown 解析也严格（非白名单 URL 整体降级为段落文字）
+- **渲染**：`renderHTML` 排除 `kind`，固定输出 `loading="lazy" decoding="async" referrerpolicy="no-referrer"`
+- **NodeView**（`image-node-view.tsx`）：
+  - `kind === 'external'` 时右上角显示「外部」徽标
+  - 选中时右下角显示拖拽手柄，等比改写 `width`/`height`（mouseup 时一次性 `updateAttributes`）
+- **BubbleMenu**（`image-bubble-menu.tsx`）：选中 image 时浮出 3 按钮 — 改 alt / 改 src / 删除
+- **插入入口**：
+  - 本地图：粘贴/拖拽文件 → `POST /api/upload` → `kind: 'local'`
+  - 外链图：slash menu `/图片` 选 "图片(外链 URL)" → `ExternalImageDialog`（URL + alt + title，URL 实时校验 http/https）→ `kind: 'external'`
+- **协议工具**：`src/lib/markdown/image-url.ts` 提供 `inferImageKind / isHttpUrl / isLocalApiUrl / isRenderableImageSrc`
