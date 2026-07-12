@@ -64,6 +64,8 @@ runSection('looksLikeMarkdown', () => {
   eq('wikilink', looksLikeMarkdown('see [[Foo]] for more'), true)
   eq('image', looksLikeMarkdown('![alt](https://x.com/y.png)'), true)
   eq('image with title', looksLikeMarkdown('![alt](https://x.com/y.png "title")'), true)
+  eq('table basic', looksLikeMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'), true)
+  eq('table with align', looksLikeMarkdown('| a | b |\n| :--- | ---: |\n| 1 | 2 |'), true)
 })
 
 // ---------------------------------------------------------------------------
@@ -276,6 +278,102 @@ runSection('docToMarkdown', () => {
       }],
     }),
     '![A](https://x.com/y.png "say \\"hi\\"")',
+  )
+
+  // ---- table ----
+  eqStr('table 2x2 (no align)',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }] },
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '1' }] }] },
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '2' }] }] },
+            ],
+          },
+        ],
+      }],
+    }),
+    '| a | b |\n| --- | --- |\n| 1 | 2 |',
+  )
+  eqStr('table with align (left/center/right)',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', attrs: { textAlign: 'left' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'L' }] }] },
+              { type: 'tableHeader', attrs: { textAlign: 'center' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'C' }] }] },
+              { type: 'tableHeader', attrs: { textAlign: 'right' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'R' }] }] },
+            ],
+          },
+        ],
+      }],
+    }),
+    '| L | C | R |\n| :--- | :---: | ---: |',
+  )
+  eqStr('table cell with bold',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'h' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [
+                { type: 'text', text: 'a ' },
+                { type: 'text', text: 'B', marks: [{ type: 'bold' }] },
+                { type: 'text', text: ' c' },
+              ] }] },
+            ],
+          },
+        ],
+      }],
+    }),
+    '| h |\n| --- |\n| a **B** c |',
+  )
+  eqStr('table cell with pipe escaped',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'h' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a | b' }] }] },
+            ],
+          },
+        ],
+      }],
+    }),
+    '| h |\n| --- |\n| a \\| b |',
   )
 })
 
@@ -536,6 +634,106 @@ runSection('markdownToDoc', () => {
       }],
     },
   )
+
+  // ---- table ----
+  eq('table 2x2 basic',
+    markdownToDoc('| a | b |\n| --- | --- |\n| 1 | 2 |'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }] }] },
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '1' }] }] },
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '2' }] }] },
+            ],
+          },
+        ],
+      }],
+    },
+  )
+  eq('table with align (left/center/right)',
+    markdownToDoc('| L | C | R |\n| :--- | :---: | ---: |\n| 1 | 2 | 3 |'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', attrs: { textAlign: 'left' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'L' }] }] },
+              { type: 'tableHeader', attrs: { textAlign: 'center' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'C' }] }] },
+              { type: 'tableHeader', attrs: { textAlign: 'right' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'R' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', attrs: { textAlign: 'left' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: '1' }] }] },
+              { type: 'tableCell', attrs: { textAlign: 'center' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: '2' }] }] },
+              { type: 'tableCell', attrs: { textAlign: 'right' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: '3' }] }] },
+            ],
+          },
+        ],
+      }],
+    },
+  )
+  // 表头 + alignment 但无 data row：合法（空 data 表）
+  eq('table header only (no data rows)',
+    markdownToDoc('| h1 | h2 |\n| --- | --- |'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'h1' }] }] },
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'h2' }] }] },
+            ],
+          },
+        ],
+      }],
+    },
+  )
+  eq('table cell with bold',
+    markdownToDoc('| h |\n| --- |\n| a **B** c |'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'h' }] }] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [{ type: 'paragraph', content: [
+                { type: 'text', text: 'a ' },
+                { type: 'text', text: 'B', marks: [{ type: 'bold' }] },
+                { type: 'text', text: ' c' },
+              ] }] },
+            ],
+          },
+        ],
+      }],
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -556,6 +754,8 @@ runSection('round-trip stable', () => {
     '![A](https://x.com/y.png)',
     '![A](https://x.com/y.png "B")',
     'see ![a](https://y.com) thanks',
+    '| a | b |\n| --- | --- |\n| 1 | 2 |',
+    '| L | C | R |\n| :--- | :---: | ---: |\n| 1 | 2 | 3 |',
   ]
   for (const md of fixtures) {
     const once = docToMarkdown(markdownToDoc(md))

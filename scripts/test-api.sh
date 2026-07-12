@@ -79,6 +79,72 @@ echo "10) GET /api/pages (清理后应只剩子页面，孤儿)"
 curl -s $BASE/api/pages | head -c 600
 echo ""
 
+# ---------------------------------------------------------------------------
+# Session: 表格块保存 / 读回
+# ---------------------------------------------------------------------------
+echo ""
+echo "================================"
+echo "Session: 表格块 (type='table')"
+echo "================================"
+
+echo ""
+echo "11) POST /api/pages (为表格测试建一个新页面)"
+PAGE_TABLE=$(curl -s -X POST $BASE/api/pages \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"表格测试页"}')
+PAGE_TABLE_ID=$(echo "$PAGE_TABLE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+echo "→ PAGE_TABLE_ID: $PAGE_TABLE_ID"
+
+echo ""
+echo "12) PUT /api/pages/$PAGE_TABLE_ID/blocks (保存一个 2×2 表格块)"
+TABLE_PUT_RESP=$(curl -s -X PUT $BASE/api/pages/$PAGE_TABLE_ID/blocks \
+  -H 'Content-Type: application/json' \
+  -d '{"blocks":[
+    {"type":"table","content":{"type":"table","content":[
+      {"type":"tableRow","content":[
+        {"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"h1"}]}]},
+        {"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"h2"}]}]}
+      ]},
+      {"type":"tableRow","content":[
+        {"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]}]},
+        {"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"b"}]}]}
+      ]}
+    ]}}
+  ]}')
+echo "$TABLE_PUT_RESP" | head -c 800
+echo ""
+
+echo ""
+echo "13) GET /api/pages/$PAGE_TABLE_ID/blocks (读回表格块，校验 type='table')"
+TABLE_GET_RESP=$(curl -s $BASE/api/pages/$PAGE_TABLE_ID/blocks)
+echo "$TABLE_GET_RESP" | head -c 800
+echo ""
+
+# 简单 grep 校验：返回里必须含 type:"table" 和 tableHeader / tableCell
+if echo "$TABLE_GET_RESP" | grep -q '"type":"table"'; then
+  echo "✅ 读回校验: 存在 type=\"table\" 块"
+else
+  echo "❌ 读回校验失败: 未找到 type=\"table\""
+  exit 1
+fi
+if echo "$TABLE_GET_RESP" | grep -q '"type":"tableHeader"'; then
+  echo "✅ 读回校验: 存在 tableHeader 节点"
+else
+  echo "❌ 读回校验失败: 未找到 tableHeader"
+  exit 1
+fi
+if echo "$TABLE_GET_RESP" | grep -q '"type":"tableCell"'; then
+  echo "✅ 读回校验: 存在 tableCell 节点"
+else
+  echo "❌ 读回校验失败: 未找到 tableCell"
+  exit 1
+fi
+
+echo ""
+echo "14) DELETE /api/pages/$PAGE_TABLE_ID (清理表格测试页)"
+curl -s -X DELETE $BASE/api/pages/$PAGE_TABLE_ID | head -c 300
+echo ""
+
 echo ""
 echo "================================"
 echo "✅ 全部测试完成"
