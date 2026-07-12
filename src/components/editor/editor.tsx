@@ -29,6 +29,7 @@ import { IconPicker } from '@/components/icon-picker'
 import { ExternalImageDialog } from './external-image-dialog'
 import { ImageBubbleMenu } from './image-bubble-menu'
 import { TableBubbleMenu } from './table-bubble-menu'
+import { TextBubbleMenu } from './text-bubble-menu'
 import { inferImageKind } from '@/lib/markdown/image-url'
 import { cn } from '@/lib/utils'
 import { useEditorScrollFollow } from './use-editor-scroll-follow'
@@ -522,6 +523,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <span className="text-destructive">保存失败</span>
         )}
       </div>
+
+      {/* 选中文字时浮出 BubbleMenu（块类型转换 + 加粗/斜体/删除线/行内 code） */}
+      {editor && <TextBubbleMenu editor={editor} />}
 
       {/* 选中 image 时浮出 BubbleMenu（改 alt / 改 src / 删除） */}
       {editor && (
