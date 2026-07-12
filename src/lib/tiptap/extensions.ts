@@ -8,13 +8,13 @@ import { ReactNodeViewRenderer } from '@tiptap/react'
 import type { Extensions } from '@tiptap/react'
 import { CodeBlockView } from './code-block-view'
 import { HeadingAnchor } from './heading-anchor'
+import { ImageNodeView } from '@/components/editor/image-node-view'
 
 // Tiptap 扩展集合
 // - StarterKit 提供：paragraph, heading, list, codeBlock, blockquote, bold, italic 等
 //   - codeBlock：StarterKit 默认禁用，自定义 addNodeView 用 CodeBlockView 渲染（顶部 header + 复制按钮）
 // - TaskList/Item：待办列表（不在 StarterKit 默认里）
-// - Placeholder：空块提示
-// - Image：图片节点（不允许 base64，仅支持 URL；由 Editor.handlePaste/handleDrop 上传后插入）
+// - ImageWithAttrs：自定义 Image（kind/width/height attrs + 防盗链/懒加载属性，详见下方）
 // - HeadingAnchor：注入 # 链接到 heading 末尾，hover 时显示，点击复制 URL hash
 export function buildExtensions(placeholder: string): Extensions {
   // 自定义 CodeBlock：保留 schema，渲染走 CodeBlockView（顶部 header + 复制按钮）
@@ -22,6 +22,47 @@ export function buildExtensions(placeholder: string): Extensions {
     addNodeView() {
       return ReactNodeViewRenderer(CodeBlockView)
     },
+  })
+
+  // 自定义 Image：
+  // - 扩展 attrs：kind('local' | 'external'，默认 'local') / width / height
+  // - renderHTML 排除 kind（避免 React unknown DOM property warning）
+  // - 固定输出 loading="lazy" decoding="async" referrerpolicy="no-referrer"
+  const ImageWithAttrs = Image.extend({
+    addAttributes() {
+      return {
+        src: { default: null },
+        alt: { default: null },
+        title: { default: null },
+        kind: { default: 'local' as const },
+        width: { default: null },
+        height: { default: null },
+      }
+    },
+    addNodeView() {
+      return ReactNodeViewRenderer(ImageNodeView)
+    },
+    renderHTML({ HTMLAttributes }) {
+      const { kind: _kind, width, height, ...rest } = HTMLAttributes as Record<
+        string,
+        unknown
+      >
+      void _kind // kind 不输出到 DOM（内部字段）
+      return [
+        'img',
+        {
+          ...rest,
+          loading: 'lazy',
+          decoding: 'async',
+          referrerpolicy: 'no-referrer',
+          ...(width != null ? { width } : {}),
+          ...(height != null ? { height } : {}),
+        },
+      ]
+    },
+  }).configure({
+    inline: false,
+    allowBase64: false,
   })
 
   return [
@@ -33,10 +74,7 @@ export function buildExtensions(placeholder: string): Extensions {
     CodeBlockWithView,
     TaskList,
     TaskItem.configure({ nested: true }),
-    Image.configure({
-      inline: false,
-      allowBase64: false,
-    }),
+    ImageWithAttrs,
     Placeholder.configure({
       showOnlyWhenEditable: true,
       showOnlyCurrent: false,

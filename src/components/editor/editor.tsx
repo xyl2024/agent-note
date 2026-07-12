@@ -25,6 +25,9 @@ import type { PMDoc, Block, Page, IconType } from '@/db/schema'
 import { debounce } from '@/lib/debounce'
 import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
+import { ExternalImageDialog } from './external-image-dialog'
+import { ImageBubbleMenu } from './image-bubble-menu'
+import { inferImageKind } from '@/lib/markdown/image-url'
 import { cn } from '@/lib/utils'
 import { useEditorScrollFollow } from './use-editor-scroll-follow'
 import './editor.css'
@@ -74,6 +77,12 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [iconPickerOpen, setIconPickerOpen] = useState(false)
+  // 外链图片 dialog：支持 insert / edit-alt / edit-src 三种模式
+  const [extImgDialog, setExtImgDialog] = useState<{
+    open: boolean
+    mode: 'insert' | 'edit-alt' | 'edit-src'
+    initial?: { url?: string; alt?: string }
+  }>({ open: false, mode: 'insert' })
   const existingIdsRef = useRef<string[]>([])
   // 用 ref 持有 editor 引用：useEffect 依赖只有 [pageId]，闭包里捕获的
   // editor 在首次渲染时仍是 null（immediatelyRender:false），靠 ref 才能拿到
@@ -219,6 +228,29 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   // ---------------------------------------------------------------------------
   // Tiptap 实例
   // ---------------------------------------------------------------------------
+  // 外链图片 dialog 触发器：slash menu "图片(外链 URL)" 选中时调用
+  const openExternalImageDialogAction = () =>
+    setExtImgDialog({ open: true, mode: 'insert' })
+
+  // BubbleMenu 「改 alt / 改 src」 触发：读当前 image 节点的 attrs 作 initial
+  const openImageEditDialogAction = (
+    mode: 'edit-alt' | 'edit-src',
+  ) => {
+    if (!editor || editor.isDestroyed) return
+    const attrs = editor.getAttributes('image') as {
+      src?: string | null
+      alt?: string | null
+    }
+    setExtImgDialog({
+      open: true,
+      mode,
+      initial: {
+        url: attrs.src ?? undefined,
+        alt: attrs.alt ?? undefined,
+      },
+    })
+  }
+
   const editor = useEditor({
     extensions: [
       ...buildExtensions('输入 / 唤出菜单，输入 [[ 链接页面，或直接开始书写…'),
@@ -227,7 +259,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         searchAction: searchPagesAction,
         createAction: createPageFromSuggestionAction,
       }),
-      SlashCommand,
+      SlashCommand.configure({
+        onSelectExternalImageAction: openExternalImageDialogAction,
+      }),
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     onCreate: ({ editor }) => {
@@ -486,6 +520,61 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <span className="text-destructive">保存失败</span>
         )}
       </div>
+
+      {/* 选中 image 时浮出 BubbleMenu（改 alt / 改 src / 删除） */}
+      {editor && (
+        <ImageBubbleMenu
+          editor={editor}
+          onRequestEditAction={openImageEditDialogAction}
+        />
+      )}
+
+      {/* 外链图片 dialog（slash menu 插入 / BubbleMenu 改 alt/改 src 复用） */}
+      <ExternalImageDialog
+        key={
+          extImgDialog.open
+            ? `open-${extImgDialog.mode}-${extImgDialog.initial?.url ?? ''}-${extImgDialog.initial?.alt ?? ''}`
+            : 'closed'
+        }
+        open={extImgDialog.open}
+        onOpenChangeAction={(open) =>
+          setExtImgDialog((s) => ({ ...s, open }))
+        }
+        initial={extImgDialog.initial}
+        mode={extImgDialog.mode}
+        onConfirmAction={({ url, alt }) => {
+          if (!editor || editor.isDestroyed) return
+          if (extImgDialog.mode === 'insert') {
+            editor
+              .chain()
+              .focus()
+              .setImage({
+                src: url,
+                alt: alt ?? undefined,
+                width: undefined,
+                height: undefined,
+              })
+              .updateAttributes('image', { kind: inferImageKind(url) })
+              .run()
+          } else if (extImgDialog.mode === 'edit-src') {
+            editor
+              .chain()
+              .focus()
+              .updateAttributes('image', {
+                src: url,
+                kind: inferImageKind(url),
+              })
+              .run()
+          } else {
+            // edit-alt
+            editor
+              .chain()
+              .focus()
+              .updateAttributes('image', { alt: alt ?? null })
+              .run()
+          }
+        }}
+      />
     </>
   )
 })
@@ -516,7 +605,13 @@ async function uploadAndInsertImage(
       console.error('image node not in schema')
       return
     }
-    const node = imageType.create({ src: data.url, alt: file.name })
+    const node = imageType.create({
+      src: data.url,
+      alt: file.name,
+      kind: 'local',
+      width: null,
+      height: null,
+    })
     const tr = state.tr.replaceSelectionWith(node)
     // 在图片后插入一个空 paragraph，让光标能继续输入
     const paraType = state.schema.nodes.paragraph

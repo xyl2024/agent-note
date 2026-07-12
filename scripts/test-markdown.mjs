@@ -62,6 +62,8 @@ runSection('looksLikeMarkdown', () => {
   eq('code', looksLikeMarkdown('this is `code`'), true)
   eq('link', looksLikeMarkdown('click [here](https://x)'), true)
   eq('wikilink', looksLikeMarkdown('see [[Foo]] for more'), true)
+  eq('image', looksLikeMarkdown('![alt](https://x.com/y.png)'), true)
+  eq('image with title', looksLikeMarkdown('![alt](https://x.com/y.png "title")'), true)
 })
 
 // ---------------------------------------------------------------------------
@@ -208,6 +210,72 @@ runSection('docToMarkdown', () => {
       }],
     }),
     'see [[Foo]] for more',
+  )
+
+  // ---- image ----
+  eqStr('image external no title',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'image',
+        attrs: { src: 'https://x.com/y.png', alt: 'A', kind: 'external' },
+      }],
+    }),
+    '![A](https://x.com/y.png)',
+  )
+  eqStr('image external with title',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'image',
+        attrs: { src: 'https://x.com/y.png', alt: 'A', title: 'B', kind: 'external' },
+      }],
+    }),
+    '![A](https://x.com/y.png "B")',
+  )
+  eqStr('image local',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'image',
+        attrs: { src: '/api/files/abc', alt: 'A', kind: 'local' },
+      }],
+    }),
+    '![A](/api/files/abc)',
+  )
+  eqStr('image empty alt',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'image',
+        attrs: { src: 'https://x.com/y.png', kind: 'external' },
+      }],
+    }),
+    '![](https://x.com/y.png)',
+  )
+  eqStr('image inline in paragraph',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'see ' },
+          { type: 'image', attrs: { src: 'https://x.com/y.png', alt: 'A', kind: 'external' } },
+          { type: 'text', text: ' ok' },
+        ],
+      }],
+    }),
+    'see ![A](https://x.com/y.png) ok',
+  )
+  eqStr('image title with escaped quote',
+    docToMarkdown({
+      type: 'doc',
+      content: [{
+        type: 'image',
+        attrs: { src: 'https://x.com/y.png', alt: 'A', title: 'say "hi"', kind: 'external' },
+      }],
+    }),
+    '![A](https://x.com/y.png "say \\"hi\\"")',
   )
 })
 
@@ -404,6 +472,81 @@ runSection('markdownToDoc', () => {
       }],
     },
   )
+
+  // ---- image ----
+  const imgAttrs = (src, kind, alt = null, title = null) => ({
+    src,
+    alt,
+    title,
+    kind,
+    width: null,
+    height: null,
+  })
+
+  eq('image external',
+    markdownToDoc('![A](https://x.com/y.png)'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'image',
+          attrs: imgAttrs('https://x.com/y.png', 'external', 'A'),
+        }],
+      }],
+    },
+  )
+  eq('image with title',
+    markdownToDoc('![A](https://x.com/y.png "B")'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'image',
+          attrs: imgAttrs('https://x.com/y.png', 'external', 'A', 'B'),
+        }],
+      }],
+    },
+  )
+  eq('image local',
+    markdownToDoc('![A](/api/files/abc)'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'image',
+          attrs: imgAttrs('/api/files/abc', 'local', 'A'),
+        }],
+      }],
+    },
+  )
+  eq('image inline embed',
+    markdownToDoc('see ![a](https://y.com) thanks'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'see ' },
+          { type: 'image', attrs: imgAttrs('https://y.com', 'external', 'a') },
+          { type: 'text', text: ' thanks' },
+        ],
+      }],
+    },
+  )
+  // 非白名单 URL 降级为原文文字
+  eq('image ftp downgrade',
+    markdownToDoc('![A](ftp://x.com/y.png)'),
+    {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{ type: 'text', text: '![A](ftp://x.com/y.png)' }],
+      }],
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -421,6 +564,9 @@ runSection('round-trip stable', () => {
     'see [[Foo]] for more',
     'see [[Foo]] or [Bar](https://x)',
     '[[My Note Title]]',
+    '![A](https://x.com/y.png)',
+    '![A](https://x.com/y.png "B")',
+    'see ![a](https://y.com) thanks',
   ]
   for (const md of fixtures) {
     const once = docToMarkdown(markdownToDoc(md))

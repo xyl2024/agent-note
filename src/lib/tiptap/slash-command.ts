@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
-import Suggestion from '@tiptap/suggestion'
+import Suggestion, { type SuggestionProps } from '@tiptap/suggestion'
 import { ReactRenderer } from '@tiptap/react'
 import tippy, { type Instance } from 'tippy.js'
 import {
@@ -13,24 +13,30 @@ import {
 // -----------------------------------------------------------------------------
 // SlashCommand 扩展：监听 "/" 字符，弹出块类型菜单
 // 使用 Tippy.js + React Renderer 在光标位置浮动显示
+//
+// 选项：
+//   - onSelectExternalImageAction?: () => void
+//       选中"图片(外链 URL)"项时回调（用于父组件打开外链图片 dialog）
 // -----------------------------------------------------------------------------
-type SuggestionProps = {
-  editor: import('@tiptap/core').Editor
-  range: { from: number; to: number }
-  query: string
-  text: string
-  items: SlashItem[]
-  command: (item: SlashItem) => void
-  decorationNode: Element | null
-  clientRect: (() => DOMRect | null) | null
-}
 
 export const SlashCommand = Extension.create({
   name: 'slashCommand',
 
   addOptions() {
     return {
-      suggestion: {
+      // 父组件传入：选中"图片(外链 URL)"项时回调（用于打开外链图片 dialog）
+      onSelectExternalImageAction: undefined as (() => void) | undefined,
+    }
+  },
+
+  addProseMirrorPlugins() {
+    // 此处 this 是 Extension 实例，能访问 this.options.onSelectExternalImageAction
+    const onSelectExternalImageAction = this.options.onSelectExternalImageAction
+    return [
+      Suggestion({
+        editor: this.editor,
+        // 必填：与 PageLinkSuggestion 区分，否则 PM 报 "Adding different instances of a keyed plugin (suggestion$)"
+        pluginKey: new PluginKey('agentNoteSlashCommandSuggestion'),
         char: '/',
         startOfLine: false,
         command: ({
@@ -50,7 +56,7 @@ export const SlashCommand = Extension.create({
             (item) =>
               item.title.toLowerCase().includes(q) ||
               item.keywords.some((k) => k.toLowerCase().includes(q)),
-          ).slice(0, 10)
+          ).slice(0, 20)
         },
         render: () => {
           let component: ReactRenderer<SlashMenuRef> | null = null
@@ -59,7 +65,11 @@ export const SlashCommand = Extension.create({
           return {
             onStart: (props: SuggestionProps) => {
               component = new ReactRenderer(SlashMenuList, {
-                props: { items: props.items, command: props.command },
+                props: {
+                  items: props.items,
+                  command: props.command,
+                  onSelectExternalImageAction,
+                },
                 editor: props.editor,
               })
               if (!props.clientRect) return
@@ -81,6 +91,7 @@ export const SlashCommand = Extension.create({
               component?.updateProps({
                 items: props.items,
                 command: props.command,
+                onSelectExternalImageAction,
               })
               if (!props.clientRect || !popup) return
               popup[0].setProps({
@@ -102,17 +113,6 @@ export const SlashCommand = Extension.create({
             },
           }
         },
-      },
-    }
-  },
-
-  addProseMirrorPlugins() {
-    return [
-      Suggestion({
-        editor: this.editor,
-        // 必填：与 PageLinkSuggestion 区分，否则 PM 报 "Adding different instances of a keyed plugin (suggestion$)"
-        pluginKey: new PluginKey('agentNoteSlashCommandSuggestion'),
-        ...this.options.suggestion,
       }),
     ]
   },

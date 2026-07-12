@@ -9,8 +9,8 @@ export function looksLikeMarkdown(text: string): boolean {
   // 块级特征
   const blockRe = /(^|\n)(#{1,6} |\*{3,}|-{3,}|`{3,}|>\s|[-*+]\s+\[[ xX]\]|[-*+]\s|\d+\.\s)/
   if (blockRe.test(text)) return true
-  // 行内 mark 特征
-  const inlineRe = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\])/
+  // 行内 mark 特征（image 语法 `![alt](url)` 与 link 同形，加在前面更早命中）
+  const inlineRe = /(!\[[^\]]*\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\])/
   if (inlineRe.test(text)) return true
   return false
 }

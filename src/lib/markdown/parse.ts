@@ -1,11 +1,14 @@
 import type { PMDoc, PMNode } from '@/db/schema'
+import { inferImageKind, isRenderableImageSrc } from './image-url'
 
 // -----------------------------------------------------------------------------
 // Markdown 字符串 → Tiptap PMDoc
 //
 // 支持的块：heading(1-3), paragraph, bulletList (含嵌套), orderedList (含嵌套),
-//          taskList, codeBlock (fenced), blockquote, horizontalRule
+//          taskList, codeBlock (fenced), blockquote, horizontalRule, image(inline)
 // 支持的 mark：bold, italic, strike, code, link
+// image 行内：`![alt](url)` 或 `![alt](url "title")`，协议白名单 http/https + /api/files/
+//   非白名单 URL 降级为段落文字（保留原文），不生成 image 节点
 // -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
@@ -15,36 +18,78 @@ import type { PMDoc, PMNode } from '@/db/schema'
 type MarkSpec = { type: string; attrs?: Record<string, unknown> }
 
 function tokenizeInline(text: string): PMNode[] {
-  // 先提取两种特殊形式：pageLink [[Title]] 和 link [text](href)
-  // 顺序：先 pageLink（因为它用 [[ 更具体），再 link
+  // 先提取三种特殊形式：image ![alt](url)、pageLink [[Title]] 和 link [text](href)
+  // 顺序：image(以 ! 起手最具体) → pageLink → link
+  const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g
   const pageLinkRegex = /\[\[([^\[\]\n]+)\]\]/g
   const linkRegex = /\[([^\]]+)\]\(([^)\s]+)\)/g
   const out: PMNode[] = []
   let cursor = 0
 
-  // 第一遍：pageLink
+  // 第一遍：image（必须在最前，因以 ! 起手）
   let m: RegExpExecArray | null
+  const imageMatches: {
+    start: number
+    end: number
+    raw: string
+    src: string
+    alt: string
+    title: string | null
+    renderable: boolean
+  }[] = []
+  while ((m = imageRegex.exec(text)) !== null) {
+    const src = m[2]
+    imageMatches.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      raw: m[0],
+      src,
+      alt: m[1],
+      title: m[3] ?? null,
+      // 严格白名单：非 http/https 且非 /api/files/ 的 URL 降级为原文文字
+      renderable: isRenderableImageSrc(src),
+    })
+  }
+
+  const isInsideImage = (pos: number) =>
+    imageMatches.some((im) => pos >= im.start && pos < im.end)
+
+  // 第二遍：pageLink，跳过 image 范围
   const pageLinkMatches: { start: number; end: number; title: string }[] = []
+  pageLinkRegex.lastIndex = 0
   while ((m = pageLinkRegex.exec(text)) !== null) {
+    if (isInsideImage(m.index)) continue
     pageLinkMatches.push({ start: m.index, end: m.index + m[0].length, title: m[1] })
   }
 
   const isInsidePageLink = (pos: number) =>
     pageLinkMatches.some((pm) => pos >= pm.start && pos < pm.end)
 
-  // 第二遍：link，跳过在 pageLink 范围内的位置
+  // 第三遍：link，跳过 image / pageLink 范围
   const linkMatches: { start: number; end: number; text: string; href: string }[] = []
   while ((m = linkRegex.exec(text)) !== null) {
+    if (isInsideImage(m.index)) continue
     if (isInsidePageLink(m.index)) continue
     linkMatches.push({ start: m.index, end: m.index + m[0].length, text: m[1], href: m[2] })
   }
 
-  // 第三遍：扫描 cursor，按位置顺序消费 pageLink / link / 其它
+  // 合并 spans 并按位置排序
   type Span =
+    | {
+        kind: 'image'
+        start: number
+        end: number
+        raw: string
+        src: string
+        alt: string
+        title: string | null
+        renderable: boolean
+      }
     | { kind: 'pageLink'; start: number; end: number; title: string }
     | { kind: 'link'; start: number; end: number; text: string; href: string }
 
   const spans: Span[] = [
+    ...imageMatches.map((im) => ({ kind: 'image' as const, ...im })),
     ...pageLinkMatches.map((pm) => ({ kind: 'pageLink' as const, ...pm })),
     ...linkMatches.map((lm) => ({ kind: 'link' as const, ...lm })),
   ].sort((a, b) => a.start - b.start)
@@ -66,13 +111,31 @@ function tokenizeInline(text: string): PMNode[] {
           },
         ],
       })
-    } else {
+    } else if (span.kind === 'link') {
       const inner = tokenizeNonLink(span.text)
       const linkMark: MarkSpec = { type: 'link', attrs: { href: span.href } }
       for (const n of inner) {
         n.marks = [...(n.marks ?? []), linkMark]
       }
       out.push(...inner)
+    } else {
+      // image
+      if (span.renderable) {
+        out.push({
+          type: 'image',
+          attrs: {
+            src: span.src,
+            alt: span.alt || null,
+            title: span.title,
+            kind: inferImageKind(span.src),
+            width: null,
+            height: null,
+          },
+        })
+      } else {
+        // 严格白名单拒绝：降级为原文 text(保留可读性)
+        out.push({ type: 'text', text: span.raw })
+      }
     }
     cursor = span.end
   }
@@ -81,6 +144,8 @@ function tokenizeInline(text: string): PMNode[] {
   }
   return out
 }
+
+/** 解析不含 link 的 inline 文本 → text 节点序列（可能带 mark） */
 
 /** 解析不含 link 的 inline 文本 → text 节点序列（可能带 mark） */
 function tokenizeNonLink(text: string): PMNode[] {

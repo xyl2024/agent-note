@@ -65,10 +65,28 @@ function renderInline(content: PMNode[] | undefined): string {
   return content
     .map((n) => {
       if (n.type === 'text') return renderText(n)
+      if (n.type === 'image') return renderImage(n)
       // paragraph / 其他 block-like 容器：递归它的 inline content
       return renderInline(n.content)
     })
     .join('')
+}
+
+/** image 节点 → ![alt](url "title") 形态 */
+function renderImage(node: PMNode): string {
+  const attrs = (node.attrs ?? {}) as {
+    src?: string | null
+    alt?: string | null
+    title?: string | null
+  }
+  const src = attrs.src ?? ''
+  const alt = attrs.alt ?? ''
+  const title = attrs.title
+  if (title) {
+    const escaped = title.replace(/"/g, '\\"')
+    return `![${alt}](${src} "${escaped}")`
+  }
+  return `![${alt}](${src})`
 }
 
 /** 转义 markdown 里有特殊意义的字符（仅在 paragraph 内的纯文本里需要） */
@@ -131,6 +149,8 @@ function renderBlock(node: PMNode, depth = 0): string {
     }
     case 'horizontalRule':
       return `${indent}---`
+    case 'image':
+      return `${indent}${renderImage(node)}`
     default:
       // 未知块降级为段落
       return `${indent}${renderInline(node.content)}`
