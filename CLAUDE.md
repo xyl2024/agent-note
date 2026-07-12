@@ -131,3 +131,8 @@ API（都在 `src/app/api/`，Node runtime）：
   - 本地图：粘贴/拖拽文件 → `POST /api/upload` → `kind: 'local'`
   - 外链图：slash menu `/图片` 选 "图片(外链 URL)" → `ExternalImageDialog`（URL + alt + title，URL 实时校验 http/https）→ `kind: 'external'`
 - **协议工具**：`src/lib/markdown/image-url.ts` 提供 `inferImageKind / isHttpUrl / isLocalApiUrl / isRenderableImageSrc`
+
+# 参考
+
+
+Tiptap 文档：https://tiptap.dev/docs
