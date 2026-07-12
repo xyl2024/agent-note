@@ -5,6 +5,7 @@ import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -28,6 +29,8 @@ import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
 import { ExternalImageDialog } from './external-image-dialog'
 import { ImageBubbleMenu } from './image-bubble-menu'
+import { ImageLightbox } from './image-lightbox'
+import { ImageActionContext, type ImagePreviewPayload } from './image-action-context'
 import { TableBubbleMenu } from './table-bubble-menu'
 import { TextBubbleMenu } from './text-bubble-menu'
 import { inferImageKind } from '@/lib/markdown/image-url'
@@ -91,6 +94,19 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     mode: 'insert' | 'edit-alt' | 'edit-src'
     initial?: { url?: string; alt?: string }
   }>({ open: false, mode: 'insert' })
+  // 图片 lightbox 预览：payload 非空即打开；关闭时置 null
+  const [lightbox, setLightbox] = useState<ImagePreviewPayload | null>(null)
+  const handlePreviewAction = useCallback(
+    (payload: ImagePreviewPayload) => setLightbox(payload),
+    [],
+  )
+  // 切换图片（prev/next）由 lightbox 内部触发，editor 只更新 index：
+  // 不创建新的 payload 对象（保持 images 数组引用稳定，避免 lightbox 不必要的重渲染）
+  const handleIndexChangeAction = useCallback(
+    (index: number) =>
+      setLightbox((prev) => (prev ? { images: prev.images, index } : prev)),
+    [],
+  )
   const existingIdsRef = useRef<string[]>([])
   // 用 ref 持有 editor 引用：useEffect 依赖只有 [pageId]，闭包里捕获的
   // editor 在首次渲染时仍是 null（immediatelyRender:false），靠 ref 才能拿到
@@ -436,7 +452,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   }
 
   return (
-    <>
+    <ImageActionContext.Provider value={{ onPreviewAction: handlePreviewAction }}>
       <div className="mx-auto w-full max-w-3xl px-12 py-16">
       {/* 页面 icon + 标题（横向布局：图标在标题左侧）
           标题用 contentEditable 而非 input：input 自身的 box 会把 descender 字符
@@ -621,7 +637,14 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           }
         }}
       />
-    </>
+
+      {/* 点击图片 → 全屏 lightbox 预览（缩放 / 适应 / 上下张 / 快捷键） */}
+      <ImageLightbox
+        payload={lightbox}
+        onCloseAction={() => setLightbox(null)}
+        onIndexChangeAction={handleIndexChangeAction}
+      />
+    </ImageActionContext.Provider>
   )
 })
 
