@@ -393,7 +393,65 @@ export function markdownToDoc(md: string): PMDoc {
   // 统一换行
   const normalized = md.replace(/\r\n/g, '\n')
   const lines = normalized.split('\n')
-  return parseMarkdown(lines, 0)
+  const doc = parseMarkdown(lines, 0)
+  return liftImagesOutOfParagraphs(doc)
+}
+
+// -----------------------------------------------------------------------------
+// 后处理：把含 image 子节点的 paragraph 拆开
+//
+// 为什么需要：tokenizeInline 在 inline 上下文里产出 image 节点，然后被
+// 包进 paragraph。但当前 schema 里 image 是 inline: false（block 节点），
+// 直接放在 paragraph 里是非法结构，会让 doc 处于 invalid 状态：
+//   doc(paragraph(image), ...)
+// Tiptap 加载时虽然会尝试提升（lift）image 出来，但 saved-back doc 仍可能
+// 残留脏数据，按 Enter / 输入时抛 "Called contentMatchAt on a node with
+// invalid content"。
+//
+// 正确拆分规则（贴合标准 markdown 渲染）：image 单独占一行，前后若有 inline
+// 文本则拆成独立的 paragraph。例如：
+//   "hello ![alt](u) world"
+// →
+//   paragraph("hello ")
+//   image({ src: u, ... })
+//   paragraph(" world")
+// -----------------------------------------------------------------------------
+function liftImagesOutOfParagraphs(doc: PMDoc): PMDoc {
+  const blocks = doc.content
+  if (!blocks) return doc
+  const out: PMNode[] = []
+  for (const block of blocks) {
+    if (
+      block.type === 'paragraph' &&
+      Array.isArray(block.content) &&
+      block.content.some((c) => c.type === 'image')
+    ) {
+      // 把 image 拆出来，inline 内容按 image 前后切到独立 paragraph
+      const before: PMNode[] = []
+      const after: PMNode[] = []
+      let passedImage = false
+      for (const child of block.content) {
+        if (child.type === 'image') {
+          if (before.length > 0) {
+            out.push({ type: 'paragraph', content: before.splice(0) })
+          }
+          out.push(child)
+          passedImage = true
+        } else if (passedImage) {
+          after.push(child)
+        } else {
+          before.push(child)
+        }
+      }
+      if (after.length > 0) {
+        out.push({ type: 'paragraph', content: after })
+      }
+      // 若只有 image 没有前后文本，nothing to push；image 已加进 out
+    } else {
+      out.push(block)
+    }
+  }
+  return { type: 'doc', content: out }
 }
 
 function parseMarkdown(lines: string[], fromIdx: number): PMDoc {

@@ -488,11 +488,8 @@ runSection('markdownToDoc', () => {
     {
       type: 'doc',
       content: [{
-        type: 'paragraph',
-        content: [{
-          type: 'image',
-          attrs: imgAttrs('https://x.com/y.png', 'external', 'A'),
-        }],
+        type: 'image',
+        attrs: imgAttrs('https://x.com/y.png', 'external', 'A'),
       }],
     },
   )
@@ -501,11 +498,8 @@ runSection('markdownToDoc', () => {
     {
       type: 'doc',
       content: [{
-        type: 'paragraph',
-        content: [{
-          type: 'image',
-          attrs: imgAttrs('https://x.com/y.png', 'external', 'A', 'B'),
-        }],
+        type: 'image',
+        attrs: imgAttrs('https://x.com/y.png', 'external', 'A', 'B'),
       }],
     },
   )
@@ -514,26 +508,21 @@ runSection('markdownToDoc', () => {
     {
       type: 'doc',
       content: [{
-        type: 'paragraph',
-        content: [{
-          type: 'image',
-          attrs: imgAttrs('/api/files/abc', 'local', 'A'),
-        }],
+        type: 'image',
+        attrs: imgAttrs('/api/files/abc', 'local', 'A'),
       }],
     },
   )
+  // image 自身必须 block-level：前后文本被拆成独立 paragraph
   eq('image inline embed',
     markdownToDoc('see ![a](https://y.com) thanks'),
     {
       type: 'doc',
-      content: [{
-        type: 'paragraph',
-        content: [
-          { type: 'text', text: 'see ' },
-          { type: 'image', attrs: imgAttrs('https://y.com', 'external', 'a') },
-          { type: 'text', text: ' thanks' },
-        ],
-      }],
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'see ' }] },
+        { type: 'image', attrs: imgAttrs('https://y.com', 'external', 'a') },
+        { type: 'paragraph', content: [{ type: 'text', text: ' thanks' }] },
+      ],
     },
   )
   // 非白名单 URL 降级为原文文字

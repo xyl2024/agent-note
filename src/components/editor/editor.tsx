@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react'
 import { Fragment, Slice } from '@tiptap/pm/model'
+import { TextSelection } from '@tiptap/pm/state'
 import {
   forwardRef,
   useEffect,
@@ -542,20 +543,15 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         }
         initial={extImgDialog.initial}
         mode={extImgDialog.mode}
-        onConfirmAction={({ url, alt }) => {
+        onConfirmAction={({ url, alt, title }) => {
           if (!editor || editor.isDestroyed) return
           if (extImgDialog.mode === 'insert') {
-            editor
-              .chain()
-              .focus()
-              .setImage({
-                src: url,
-                alt: alt ?? undefined,
-                width: undefined,
-                height: undefined,
-              })
-              .updateAttributes('image', { kind: inferImageKind(url) })
-              .run()
+            insertImageWithTrailingParagraph(editor.view, {
+              src: url,
+              alt: alt ?? undefined,
+              title: title ?? undefined,
+              kind: inferImageKind(url),
+            })
           } else if (extImgDialog.mode === 'edit-src') {
             editor
               .chain()
@@ -580,6 +576,74 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 })
 
 // -----------------------------------------------------------------------------
+// 公共逻辑：在当前光标处插入 image 节点，并在其后追加一个空 paragraph，
+// 同时把光标显式挪到 trailing paragraph 内。
+//
+// 为什么这套写法：
+//   image 是 block + atomic 节点。早期版本用 `replaceSelectionWith(image) +
+//   tr.insert(sel.from, paragraph)`，在「光标在空段」场景里会产生 doc(image)
+//   + NodeSelection，再 tr.insert 会把 paragraph 插到 image 前面、cursor
+//   仍留在 image 内部，按 Enter 立刻抛
+//   "Inserted content deeper than insertion position"（这正是浏览器
+//   "Called contentMatchAt on a node with invalid content" 报错的同源错误）。
+//
+//   正确做法：用 `replaceWith(from, to, [imageNode, paragraphNode])` 一次
+//   性替换选区为 [image, paragraph]。ProseMirror 会自动把光标所在的
+//   textblock 切分以容纳 image，并在 doc 末尾得到一个 trailing paragraph。
+//   然后用 doc 里的 image 计数（替换前后差 1）定位"刚插入的"那张图，
+//   把光标 setSelection 到它后面的 paragraph 内 —— 否则 cursor 会留在
+//   image 上的 NodeSelection，再次按 Enter 又会爆。
+//
+// 共享给本地上传（uploadAndInsertImage）和外链插入（slash menu / dialog）
+// 两条路径，避免再次出现只补了一边的回归。
+// -----------------------------------------------------------------------------
+function insertImageWithTrailingParagraph(
+  view: import('@tiptap/pm/view').EditorView,
+  attrs: Record<string, unknown>,
+) {
+  const { state, dispatch } = view
+  const imageType = state.schema.nodes.image
+  const paraType = state.schema.nodes.paragraph
+  if (!imageType || !paraType) {
+    console.error('image or paragraph node not in schema')
+    return
+  }
+  const imageNode = imageType.create(attrs)
+  const paragraphNode = paraType.create()
+
+  // 数原 doc 里 image 的数量。插入后第 N+1 个 image 就是刚插入的。
+  let originalImageCount = 0
+  state.doc.descendants((node) => {
+    if (node.type === imageType) originalImageCount++
+  })
+
+  const { from, to } = state.selection
+  let tr = state.tr.replaceWith(from, to, [imageNode, paragraphNode])
+
+  // 找到刚插入的 image 的绝对位置
+  let imagePos = -1
+  let count = 0
+  tr.doc.descendants((node, pos) => {
+    if (node.type === imageType) {
+      count++
+      if (count === originalImageCount + 1) {
+        imagePos = pos
+        return false
+      }
+    }
+  })
+
+  if (imagePos >= 0) {
+    // image 后面紧跟 trailing paragraph；open token 在 imagePos + imageNode.nodeSize，
+    // cursor 落在 open 之后即可在 paragraph 内正常输入/按 Enter。
+    const cursorPos = imagePos + imageNode.nodeSize + 1
+    tr = tr.setSelection(TextSelection.create(tr.doc, cursorPos))
+  }
+
+  dispatch(tr)
+}
+
+// -----------------------------------------------------------------------------
 // 把图片上传到 /api/upload，拿到 URL 后插入 Image 节点
 // -----------------------------------------------------------------------------
 async function uploadAndInsertImage(
@@ -598,25 +662,13 @@ async function uploadAndInsertImage(
       return
     }
     const data = (await res.json()) as { url: string; assetId: string; mime: string }
-    // 用 transaction 在光标处插入 image node
-    const { state, dispatch } = view
-    const imageType = state.schema.nodes.image
-    if (!imageType) {
-      console.error('image node not in schema')
-      return
-    }
-    const node = imageType.create({
+    insertImageWithTrailingParagraph(view, {
       src: data.url,
       alt: file.name,
       kind: 'local',
       width: null,
       height: null,
     })
-    const tr = state.tr.replaceSelectionWith(node)
-    // 在图片后插入一个空 paragraph，让光标能继续输入
-    const paraType = state.schema.nodes.paragraph
-    if (paraType) tr.insert(tr.selection.from, paraType.create())
-    dispatch(tr)
   } catch (e) {
     console.error('upload error', e)
   }
