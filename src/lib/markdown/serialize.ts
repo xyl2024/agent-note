@@ -45,8 +45,7 @@ function applyMark(text: string, mark: PMMark): string {
     case 'strike':
       return `~~${text}~~`
     case 'code':
-      // code mark 内的内容不进 link 包裹（上面已处理），但 inline ` 内部不能有 `
-      return text.includes('`') ? `\`${text.replace(/`/g, ' ')}\`` : `\`${text}\``
+      return renderCodeSpan(text)
     case 'link':
       // link 由 renderText 单独处理，这里 no-op
       return text
@@ -56,6 +55,36 @@ function applyMark(text: string, mark: PMMark): string {
     default:
       return text
   }
+}
+
+/** 把 code mark 文本序列化成 markdown。
+ *  CommonMark §6.1：围栏长度 = 内容里最长连续反引号串长度 + 1。
+ *  若内容首尾出现反引号，fence 和内容必须用空格隔开，否则会被解析端当成
+ *  更长的 fence 串。CommonMark 解析时会把首尾空格剥离，所以输出空格包裹
+ *  的版本是 round-trip 安全的。
+ *  特例：内容不含反引号 + 首尾都是空格 + trim 非空 → 剥离首尾空格后用 1 个 `。 */
+function renderCodeSpan(text: string): string {
+  let maxRun = 0
+  for (const m of text.matchAll(/`+/g)) {
+    if (m[0].length > maxRun) maxRun = m[0].length
+  }
+  // 特例：fence=1 + 内容首尾空格 → 剥离（避免被解析端当成 code 包含首尾空格）
+  if (
+    maxRun === 0 &&
+    text.length >= 2 &&
+    text.startsWith(' ') &&
+    text.endsWith(' ') &&
+    text.trim().length > 0
+  ) {
+    return `\`${text.slice(1, -1)}\``
+  }
+  const fence = '`'.repeat(maxRun + 1)
+  // content 以 ` 开头或结尾 → fence 紧挨会让解析端读到更长的反引号串，加空格隔开
+  const body =
+    text.length > 0 && (text.startsWith('`') || text.endsWith('`'))
+      ? ` ${text} `
+      : text
+  return `${fence}${body}${fence}`
 }
 
 /** 把行内内容（含 marks 的 text 节点序列）渲染成 markdown。

@@ -145,13 +145,18 @@ function tokenizeInline(text: string): PMNode[] {
   return out
 }
 
-/** 解析不含 link 的 inline 文本 → text 节点序列（可能带 mark） */
-
-/** 解析不含 link 的 inline 文本 → text 节点序列（可能带 mark） */
+/** 解析不含 link 的 inline 文本 → text 节点序列（可能带 mark）
+ *
+ * 行内 code 严格按 CommonMark §6.1 处理：
+ *  - 围栏长度 N（≥1）= 开头/结尾连续反引号个数
+ *  - 内容里允许最多 N-1 个连续反引号
+ *  - 内容首尾若都是空格（且 trim 非空）→ 剥离首尾各 1 空格
+ *  - 找不到合法闭合 → 当前反引号当字面字符
+ *
+ * bold/strike/italic 内部递归调本函数，让 code 段能正确嵌套在粗体里。
+ * 外层正则禁止裸的反引号和非自身字符（如 italic 拒绝裸 `*`），再让
+ * 内层 inline code 正则负责把反引号段完整吃掉。 */
 function tokenizeNonLink(text: string): PMNode[] {
-  // 顺序很重要：bold/strike/code 先匹配（` 长度固定 1），italic 单独匹配（` *`）
-  // 不能用单个正则同时识别多种 mark，因为会嵌套 / 顺序冲突
-  // 用扫描式：依次尝试匹配最长的 mark
   const out: PMNode[] = []
   let buf = ''
   let i = 0
@@ -164,65 +169,105 @@ function tokenizeNonLink(text: string): PMNode[] {
   }
 
   while (i < text.length) {
-    const rest = text.slice(i)
+    const ch = text[i]
 
-    // `code`：行内 code
-    const codeMatch = rest.match(/^`([^`\n]+)`/)
-    if (codeMatch) {
-      flushText()
-      out.push({
-        type: 'text',
-        text: codeMatch[1],
-        marks: [{ type: 'code' }],
-      })
-      i += codeMatch[0].length
+    // --- inline code ---
+    if (ch === '`') {
+      const openLen = countBackticks(text, i)
+      const closeStart = findCodeSpanEnd(text, i + openLen, openLen)
+      if (closeStart !== -1) {
+        const raw = text.slice(i + openLen, closeStart)
+        const stripped =
+          raw.length >= 2 && raw.startsWith(' ') && raw.endsWith(' ') && raw.trim().length > 0
+            ? raw.slice(1, -1)
+            : raw
+        flushText()
+        out.push({
+          type: 'text',
+          text: stripped,
+          marks: [{ type: 'code' }],
+        })
+        i = closeStart + openLen
+        continue
+      }
+      // 找不到合法闭合 → 当前 ` 当字面字符
+      buf += ch
+      i++
       continue
     }
 
-    // **bold**
-    const boldMatch = rest.match(/^\*\*([^*\n]+)\*\*/)
+    const rest = text.slice(i)
+
+    // **bold**：内部不允许裸 * 和 `（` 让 code 段整体吃掉）
+    const boldMatch = rest.match(/^\*\*((?:[^*`]|`(?:[^`\n]|``[^`\n]+``)*`)+)\*\*/)
     if (boldMatch) {
       flushText()
-      out.push({
-        type: 'text',
-        text: boldMatch[1],
-        marks: [{ type: 'bold' }],
-      })
+      pushWithMark(out, tokenizeNonLink(boldMatch[1]), { type: 'bold' })
       i += boldMatch[0].length
       continue
     }
 
     // ~~strike~~
-    const strikeMatch = rest.match(/^~~([^~\n]+)~~/)
+    const strikeMatch = rest.match(/^~~((?:[^~`]|`(?:[^`\n]|``[^`\n]+``)*`)+)~~/)
     if (strikeMatch) {
       flushText()
-      out.push({
-        type: 'text',
-        text: strikeMatch[1],
-        marks: [{ type: 'strike' }],
-      })
+      pushWithMark(out, tokenizeNonLink(strikeMatch[1]), { type: 'strike' })
       i += strikeMatch[0].length
       continue
     }
 
-    // *italic* （单星不双星）
-    const italicMatch = rest.match(/^\*([^*\n]+)\*/)
+    // *italic*（单星不双星）
+    const italicMatch = rest.match(/^\*((?:[^*`]|`(?:[^`\n]|``[^`\n]+``)*`)+)\*/)
     if (italicMatch) {
       flushText()
-      out.push({
-        type: 'text',
-        text: italicMatch[1],
-        marks: [{ type: 'italic' }],
-      })
+      pushWithMark(out, tokenizeNonLink(italicMatch[1]), { type: 'italic' })
       i += italicMatch[0].length
       continue
     }
 
-    buf += text[i]
+    buf += ch
     i++
   }
   flushText()
   return out
+}
+
+/** 从 pos 开始数连续反引号长度（至少 1） */
+function countBackticks(text: string, pos: number): number {
+  let n = 0
+  while (pos + n < text.length && text[pos + n] === '`') n++
+  return n
+}
+
+/** 从 startPos 起寻找连续 openLen 个反引号作为 code span 的闭合位置。
+ *  CommonMark §6.1：code span 内容里允许最多 openLen-1 个连续反引号。
+ *  - 不能跨行
+ *  - 遇到反引号时数连续长度 runLen：若 runLen !== openLen（不论太长还是太短），
+ *    整段都不是合法闭合，整段跳过继续；
+ *    若 runLen === openLen，作为合法闭合返回。
+ *  返回：闭合起点；找不到 → -1 */
+function findCodeSpanEnd(text: string, startPos: number, openLen: number): number {
+  let i = startPos
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === '\n') return -1
+    if (ch === '`') {
+      const runLen = countBackticks(text, i)
+      if (runLen === openLen) return i
+      i += runLen
+      continue
+    }
+    i++
+  }
+  return -1
+}
+
+/** 把 inline 节点序列统一追加一个 mark（保留已有 marks） */
+function pushWithMark(nodes: PMNode[], inner: PMNode[], mark: MarkSpec): void {
+  for (const n of inner) {
+    n.marks = [...(n.marks ?? []), mark]
+  }
+  nodes.push(...inner)
 }
 
 // -----------------------------------------------------------------------------

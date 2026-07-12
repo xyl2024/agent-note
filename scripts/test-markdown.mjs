@@ -761,6 +761,114 @@ runSection('markdownToDoc', () => {
       }],
     },
   )
+
+  // ---- inline code: CommonMark §6.1 嵌套反引号 ----
+  const codeText = (text) => ({ type: 'text', text, marks: [{ type: 'code' }] })
+
+  eq('inline code: single backtick',
+    markdownToDoc('a `foo` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('foo'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  // 双反引号包围内含单反引号（CommonMark 要求反引号之间有空格隔开）
+  eq('inline code: double backtick wraps single',
+    markdownToDoc('a `` `foo` `` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('`foo`'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  eq('inline code: double backtick wraps single literal',
+    markdownToDoc('a `` ` `` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('`'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  eq('inline code: double backtick contains inline `date`',
+    markdownToDoc('a `` echo `date` `` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('echo `date`'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  eq('inline code: double backtick contains JSX',
+    markdownToDoc('a `` `<div className="app">` `` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('`<div className="app">`'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  // CommonMark 规则：内容首尾空格都被剥离
+  eq('inline code: leading/trailing space stripped',
+    markdownToDoc('a ` foo ` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('foo'),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  eq('inline code: only-spaces stays as-is',
+    markdownToDoc('a `   ` b'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a ' },
+          codeText('   '),
+          { type: 'text', text: ' b' },
+        ],
+      }] },
+  )
+  // bold 内嵌 code：code mark 必须在 bold 内部被识别
+  eq('inline code: nested in bold',
+    markdownToDoc('一定要 **先执行 `npm run build` 再部署**'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: '一定要 ' },
+          { type: 'text', text: '先执行 ', marks: [{ type: 'bold' }] },
+          { type: 'text', text: 'npm run build', marks: [{ type: 'code' }, { type: 'bold' }] },
+          { type: 'text', text: ' 再部署', marks: [{ type: 'bold' }] },
+        ],
+      }] },
+  )
+  // bold 内嵌双反引号 code
+  eq('inline code: double-backtick nested in bold',
+    markdownToDoc('**双反引号 ``code`` 内嵌**'),
+    { type: 'doc', content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: '双反引号 ', marks: [{ type: 'bold' }] },
+          { type: 'text', text: 'code', marks: [{ type: 'code' }, { type: 'bold' }] },
+          { type: 'text', text: ' 内嵌', marks: [{ type: 'bold' }] },
+        ],
+      }] },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -784,6 +892,15 @@ runSection('round-trip stable', () => {
     'see ![a](https://y.com) thanks',
     '| a | b |\n| --- | --- |\n| 1 | 2 |',
     '| L | C | R |\n| :--- | :---: | ---: |\n| 1 | 2 | 3 |',
+    // inline code round-trip（CommonMark §6.1）
+    'a `foo` b',
+    'a `` `foo` `` b',
+    'a `` ` `` b',
+    'a `` echo `date` `` b',
+    'a `` `<div className="app">` `` b',
+    'a ` foo ` b',
+    '一定要 **先执行 `npm run build` 再部署**',
+    '**双反引号 ``code`` 内嵌**',
   ]
   for (const md of fixtures) {
     const once = docToMarkdown(markdownToDoc(md))
