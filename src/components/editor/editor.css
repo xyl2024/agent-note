@@ -117,7 +117,8 @@
   gap: 0.5rem;
 }
 .tiptap ul[data-type='taskList'] li > label {
-  margin-top: 0.4rem;
+  /* 行高 1.7 + 0.25rem 段落 margin：让 1rem 方框中心对齐文字行中心 */
+  margin-top: 0.6rem;
   user-select: none;
   display: inline-flex;
 }
