@@ -37,6 +37,7 @@ export const PageLinkMenuList = forwardRef<PageLinkMenuRef, Props>(
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [creating, setCreating] = useState(false)
     const wasEmptyRef = useRef(items.length === 0)
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
     // 用 query + 创建项组合作为列表。query 非空 + 无完全匹配 → 末尾加「创建」
     const list: (PageLinkItem & { __create?: boolean })[] = [...items]
@@ -65,6 +66,12 @@ export const PageLinkMenuList = forwardRef<PageLinkMenuRef, Props>(
       wasEmptyRef.current = isEmpty
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [list.length])
+
+    // 选中项变化时滚进视口（max-h-80 容器溢出场景下避免键盘选到看不到的项）
+    useEffect(() => {
+      const el = buttonRefs.current[selectedIndex]
+      el?.scrollIntoView({ block: 'nearest' })
+    }, [selectedIndex])
 
     // 键盘处理
     useImperativeHandle(ref, () => ({
@@ -111,13 +118,16 @@ export const PageLinkMenuList = forwardRef<PageLinkMenuRef, Props>(
     }
 
     return (
-      <div className="z-50 max-h-80 w-80 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+      <div className="z-50 max-h-80 w-80 overflow-y-auto rounded-md border bg-popover p-1 shadow-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {list.map((item, idx) => {
           const selected = idx === selectedIndex
           if (item.__create) {
             return (
               <button
                 key={CREATE_KEY}
+                ref={(el) => {
+                  buttonRefs.current[idx] = el
+                }}
                 type="button"
                 disabled={creating}
                 onMouseDown={(e) => {
@@ -141,6 +151,9 @@ export const PageLinkMenuList = forwardRef<PageLinkMenuRef, Props>(
           return (
             <button
               key={item.pageId ?? item.pageTitle}
+              ref={(el) => {
+                buttonRefs.current[idx] = el
+              }}
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault()

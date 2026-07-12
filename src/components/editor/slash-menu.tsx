@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useImperativeHandle, useState, forwardRef } from 'react'
+import { useEffect, useImperativeHandle, useState, forwardRef, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 
 // -----------------------------------------------------------------------------
@@ -125,9 +125,16 @@ export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuL
   ref,
 ) {
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   // items 变化时重置选中
   useEffect(() => setSelectedIndex(0), [items])
+
+  // 选中项变化时滚进视口（max-h-80 容器溢出场景下避免键盘选到看不到的项）
+  useEffect(() => {
+    const el = buttonRefs.current[selectedIndex]
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex])
 
   // 选中某项的统一处理：先跑 SLASH_ITEMS 自己的 command（清掉斜杠文本 + 节点操作），
   // 如果是外链图片项，再通知父组件打开 dialog
@@ -168,10 +175,13 @@ export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuL
   }
 
   return (
-    <div className="z-50 max-h-80 w-72 overflow-y-auto rounded-md border bg-popover p-1 shadow-md">
+    <div className="z-50 max-h-80 w-72 overflow-y-auto rounded-md border bg-popover p-1 shadow-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {items.map((item, idx) => (
         <button
           key={item.title}
+          ref={(el) => {
+            buttonRefs.current[idx] = el
+          }}
           type="button"
           onMouseDown={(e) => {
             e.preventDefault()
