@@ -117,7 +117,7 @@ export function Sidebar({
     <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
       {/* Workspace header */}
       <div className="flex items-center justify-between gap-1 px-3 py-3">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 text-inherit no-underline">
           <BrandIcon className="h-6 w-6" />
           <span className="text-sm font-semibold">Agent Note</span>
         </Link>
