@@ -33,7 +33,12 @@ import { TextBubbleMenu } from './text-bubble-menu'
 import { inferImageKind } from '@/lib/markdown/image-url'
 import { cn } from '@/lib/utils'
 import { useEditorScrollFollow } from './use-editor-scroll-follow'
+import { useBlockDrag } from './use-block-drag'
+import { BlockGutter } from './block-gutter'
 import './editor.css'
+
+// block-move 自定义 MIME：与 use-block-drag.ts 里的 DRAG_MIME 必须一致
+const BLOCK_MOVE_MIME = 'application/x-block-move'
 
 // -----------------------------------------------------------------------------
 // Editor 主组件
@@ -91,6 +96,9 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   // editor 在首次渲染时仍是 null（immediatelyRender:false），靠 ref 才能拿到
   // 异步创建好的实例去 setContent。
   const editorRef = useRef<TiptapEditor | null>(null)
+  // 编辑器容器的 ref：包住 <EditorContent> 和 <BlockGutter>，
+  // 供 useBlockDrag 内部做视口坐标计算 + 自动滚动。
+  const editorContainerRef = useRef<HTMLDivElement | null>(null)
   // pendingDocRef 用于解决 onCreate 和 fetch 时序不定的问题：
   // 谁后到谁消费，保证 setContent 在任意顺序下都能发生。
   const pendingDocRef = useRef<PMDoc | null>(null)
@@ -315,6 +323,13 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       },
       // 拖入文件：仅接 image/*
       handleDrop: (view, event, _slice, _moved) => {
+        // 优先识别 block-move 类型：完全交给 gutter 处理，阻止 PM 默认行为
+        // （PM 默认会把拖入的 fragment 当文本插入，会炸）
+        const types = event.dataTransfer?.types
+        if (types && Array.from(types).includes(BLOCK_MOVE_MIME)) {
+          event.preventDefault()
+          return true
+        }
         const files = event.dataTransfer?.files
         if (!files || files.length === 0) return false
         const file = files[0]
@@ -348,6 +363,17 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   })
 
   useEditorScrollFollow(editor)
+
+  // block 拖动 hook：位置计算 + dragover/drop 处理
+  const {
+    positions: gripPositions,
+    dragState,
+    hoveredIndex,
+    onGripDragStart,
+    onGripDragEnd,
+    onContainerDragOver,
+    onContainerDrop,
+  } = useBlockDrag(editor, pageId, editorContainerRef)
 
   // ---------------------------------------------------------------------------
   // 同步外部 title 变更（如侧栏重命名同步过来）
@@ -493,8 +519,24 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         />
       </div>
 
-      {/* 编辑器 */}
-      <EditorContent editor={editor} />
+      {/* 编辑器 + 左侧拖动覆盖层 */}
+      <div
+        ref={editorContainerRef}
+        className="editor-block-container relative"
+        onDragOver={onContainerDragOver}
+        onDrop={onContainerDrop}
+      >
+        <EditorContent editor={editor} />
+        {editor && (
+          <BlockGutter
+            positions={gripPositions}
+            dragState={dragState}
+            hoveredIndex={hoveredIndex}
+            onGripDragStart={onGripDragStart}
+            onGripDragEnd={onGripDragEnd}
+          />
+        )}
+      </div>
     </div>
 
     {/* 保存状态指示 — 浮动在视口右下角，滚动到文档中段也可见 */}

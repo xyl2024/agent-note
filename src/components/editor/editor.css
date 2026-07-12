@@ -705,3 +705,96 @@
   overflow-y: auto;
 }
 
+/* -----------------------------------------------------------------------------
+   Block 拖动手柄（左侧 gutter 覆盖层）
+   - gutter 容器 absolute 铺满父容器；grip 用 translateY 跟随内容滚动
+   - hover .tiptap 时整列 grip 显形；拖动期间强制全亮（--active）
+   - drop-line 是拖到合法落点时的 2px 蓝色细线
+   - dragging-source 是被拖源块本身（hook 在 dragstart 时通过 classList 加）
+   ----------------------------------------------------------------------------- */
+.editor-block-container {
+  /* 让 absolute 的 gutter 相对这个容器定位 */
+  position: relative;
+}
+
+.editor-block-gutter {
+  position: absolute;
+  /* 浮在 .tiptap 左边 28px 处，宽度 16px，与块首行基线对齐 */
+  left: -28px;
+  top: 0;
+  width: 16px;
+  /* 高度撑满容器，grip 通过 translateY 绝对定位 */
+  height: 100%;
+  /* gutter 容器本身不接收事件，只让 grip 按钮接收 */
+  pointer-events: none;
+  /* 保证不被 .tiptap 内部的内容盖住 */
+  z-index: 5;
+}
+
+.editor-block-gutter__grip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  background: transparent;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  pointer-events: auto;
+  /* 让浏览器知道这是可拖动元素（button 自带 draggable 行为已被 prop 设） */
+  user-select: none;
+  border: none;
+  padding: 0;
+}
+
+/* 单 block 维度 hover：useBlockDrag 根据 mousemove 二分定位出 hoveredIndex，
+   给对应那个 grip 加 --hover class。拖动期间 --active 强制全亮覆盖。 */
+.editor-block-gutter__grip--hover,
+.editor-block-gutter--active .editor-block-gutter__grip {
+  opacity: 0.6;
+}
+
+.editor-block-gutter__grip:hover {
+  opacity: 1;
+  color: var(--foreground);
+  background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+}
+
+.editor-block-gutter__grip--dragging,
+.editor-block-gutter__grip--dragging:hover {
+  cursor: grabbing;
+  opacity: 1;
+  color: var(--primary);
+  background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.editor-block-gutter__drop-line {
+  position: absolute;
+  /* 横向延伸：超出 grip 列覆盖到 .tiptap 内部 */
+  left: 0;
+  right: -24px;
+  height: 2px;
+  margin-top: -1px; /* 中心对齐到 translateY 指定位置 */
+  background: var(--primary);
+  border-radius: 1px;
+  pointer-events: none;
+  animation: editor-block-drop-line-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes editor-block-drop-line-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* 源块半透明 — 由 hook 在 dragstart 时通过 classList 加 */
+.tiptap .dragging-source {
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
