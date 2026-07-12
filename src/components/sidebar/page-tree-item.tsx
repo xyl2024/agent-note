@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight, FileText, MoreHorizontal, Plus, Star, StarOff, Trash2 } from 'lucide-react'
+import { ChevronRight, FileText, MoreHorizontal, Pencil, Plus, Star, StarOff, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Page } from '@/db/schema'
 import { resolveIcon } from '@/lib/icon-resolver'
@@ -208,6 +208,7 @@ export function PageTreeItem({
               新建子页面
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setEditing(true)}>
+              <Pencil />
               重命名
             </DropdownMenuItem>
             <DropdownMenuSeparator />
