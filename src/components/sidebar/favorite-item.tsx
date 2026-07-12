@@ -1,6 +1,6 @@
 'use client'
 
-import { FileText, MoreHorizontal, Star, StarOff } from 'lucide-react'
+import { FileText, MoreHorizontal, StarOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Page } from '@/db/schema'
 import { resolveIcon } from '@/lib/icon-resolver'
@@ -41,12 +41,6 @@ export function FavoriteItem({
           isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
         )}
       >
-        {/* ★ 徽章：实心 + muted-foreground 色调（已收藏状态） */}
-        <Star
-          className="h-3.5 w-3.5 shrink-0 fill-current text-muted-foreground"
-          aria-label="已收藏"
-        />
-
         {/* 页面图标 */}
         <span className="grid h-4 w-4 shrink-0 place-items-center text-base leading-none mr-1">
           {resolveIcon(page.iconType, page.iconValue) ?? (
