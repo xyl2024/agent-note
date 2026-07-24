@@ -442,7 +442,7 @@ export function CodeBlockView(props: NodeViewProps) {
                 {...triggerProps}
                 className="lang lang-trigger"
                 // 阻止按钮 mousedown 时获得焦点 —— ProseMirror 会把 blur 当成 selectionChange，
-                // 不拦截会引起编辑器选区闪烁。镜像 image-bubble-menu.tsx:35-38 的处理。
+                // 不拦截会引起编辑器选区闪烁。
                 onMouseDown={(event) => event.preventDefault()}
                 aria-label="切换代码块语言"
               >

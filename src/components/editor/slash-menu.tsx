@@ -13,20 +13,7 @@ export type SlashItem = {
   command: (props: { editor: Editor; range: { from: number; to: number } }) => void
 }
 
-/** "图片(外链 URL)" 项的 title，用于 SlashMenuList 拦截走外部 dialog 流程 */
-export const EXTERNAL_IMAGE_ITEM_TITLE = '图片(外链 URL)'
-
 export const SLASH_ITEMS: SlashItem[] = [
-  {
-    title: '图片(外链 URL)',
-    description: '插入一张外部图片（https://…）',
-    keywords: ['外链', '图片', 'image', 'url'],
-    // command 内部 deleteRange 把 "/图片(外链 URL)" 清掉；SlashMenuList 选中该项时
-    // 会同时调 onSelectExternalImageAction 打开外链图片 dialog
-    command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).run()
-    },
-  },
   {
     title: '正文',
     description: '普通段落',
@@ -168,12 +155,10 @@ export type SlashMenuRef = {
 type Props = {
   items: SlashItem[]
   command: (item: SlashItem) => void
-  /** 选中 "图片(外链 URL)" 项时调用（由父组件打开外链图片 dialog） */
-  onSelectExternalImageAction?: () => void
 }
 
 export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuList(
-  { items, command, onSelectExternalImageAction },
+  { items, command },
   ref,
 ) {
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -188,15 +173,6 @@ export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuL
     el?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  // 选中某项的统一处理：先跑 SLASH_ITEMS 自己的 command（清掉斜杠文本 + 节点操作），
-  // 如果是外链图片项，再通知父组件打开 dialog
-  const selectItem = (item: SlashItem) => {
-    command(item)
-    if (item.title === EXTERNAL_IMAGE_ITEM_TITLE) {
-      onSelectExternalImageAction?.()
-    }
-  }
-
   // 键盘上下/回车事件
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
@@ -210,7 +186,7 @@ export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuL
       }
       if (event.key === 'Enter') {
         if (items[selectedIndex]) {
-          selectItem(items[selectedIndex])
+          command(items[selectedIndex])
         }
         return true
       }
@@ -237,7 +213,7 @@ export const SlashMenuList = forwardRef<SlashMenuRef, Props>(function SlashMenuL
           type="button"
           onMouseDown={(e) => {
             e.preventDefault()
-            selectItem(item)
+            command(item)
           }}
           onMouseEnter={() => setSelectedIndex(idx)}
           className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left text-sm ${

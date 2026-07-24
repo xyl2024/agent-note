@@ -13,25 +13,16 @@ import {
 // -----------------------------------------------------------------------------
 // SlashCommand 扩展：监听 "/" 字符，弹出块类型菜单
 // 使用 Tippy.js + React Renderer 在光标位置浮动显示
-//
-// 选项：
-//   - onSelectExternalImageAction?: () => void
-//       选中"图片(外链 URL)"项时回调（用于父组件打开外链图片 dialog）
 // -----------------------------------------------------------------------------
 
 export const SlashCommand = Extension.create({
   name: 'slashCommand',
 
   addOptions() {
-    return {
-      // 父组件传入：选中"图片(外链 URL)"项时回调（用于打开外链图片 dialog）
-      onSelectExternalImageAction: undefined as (() => void) | undefined,
-    }
+    return {}
   },
 
   addProseMirrorPlugins() {
-    // 此处 this 是 Extension 实例，能访问 this.options.onSelectExternalImageAction
-    const onSelectExternalImageAction = this.options.onSelectExternalImageAction
     return [
       Suggestion({
         editor: this.editor,
@@ -68,7 +59,6 @@ export const SlashCommand = Extension.create({
                 props: {
                   items: props.items,
                   command: props.command,
-                  onSelectExternalImageAction,
                 },
                 editor: props.editor,
               })
@@ -91,7 +81,6 @@ export const SlashCommand = Extension.create({
               component?.updateProps({
                 items: props.items,
                 command: props.command,
-                onSelectExternalImageAction,
               })
               if (!props.clientRect || !popup) return
               popup[0].setProps({

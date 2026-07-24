@@ -3,7 +3,6 @@ import CodeBlock from '@tiptap/extension-code-block'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import Image from '@tiptap/extension-image'
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
@@ -13,13 +12,11 @@ import type { Extensions } from '@tiptap/react'
 import { CodeBlockView } from './code-block-view'
 import { HeadingAnchor } from './heading-anchor'
 import { IndentShortcuts } from './indent-shortcuts'
-import { ImageNodeView } from '@/components/editor/image-node-view'
 
 // Tiptap 扩展集合
 // - StarterKit 提供：paragraph, heading, list, codeBlock, blockquote, bold, italic 等
 //   - codeBlock：StarterKit 默认禁用，自定义 addNodeView 用 CodeBlockView 渲染（顶部 header + 复制按钮）
 // - TaskList/Item：待办列表（不在 StarterKit 默认里）
-// - ImageWithAttrs：自定义 Image（kind/width/height attrs + 防盗链/懒加载属性，详见下方）
 // - Table 4 件套：表格（resizable: true 启用列宽拖拽；单元格仅允许 inline）
 // - HeadingAnchor：给 heading 节点 DOM 写 id（用于 Outline 大纲 scroll spy）
 export function buildExtensions(placeholder: string): Extensions {
@@ -35,47 +32,6 @@ export function buildExtensions(placeholder: string): Extensions {
     tabSize: 4,
   })
 
-  // 自定义 Image：
-  // - 扩展 attrs：kind('local' | 'external'，默认 'local') / width / height
-  // - renderHTML 排除 kind（避免 React unknown DOM property warning）
-  // - 固定输出 loading="lazy" decoding="async" referrerpolicy="no-referrer"
-  const ImageWithAttrs = Image.extend({
-    addAttributes() {
-      return {
-        src: { default: null },
-        alt: { default: null },
-        title: { default: null },
-        kind: { default: 'local' as const },
-        width: { default: null },
-        height: { default: null },
-      }
-    },
-    addNodeView() {
-      return ReactNodeViewRenderer(ImageNodeView)
-    },
-    renderHTML({ HTMLAttributes }) {
-      const { kind: _kind, width, height, ...rest } = HTMLAttributes as Record<
-        string,
-        unknown
-      >
-      void _kind // kind 不输出到 DOM（内部字段）
-      return [
-        'img',
-        {
-          ...rest,
-          loading: 'lazy',
-          decoding: 'async',
-          referrerpolicy: 'no-referrer',
-          ...(width != null ? { width } : {}),
-          ...(height != null ? { height } : {}),
-        },
-      ]
-    },
-  }).configure({
-    inline: false,
-    allowBase64: false,
-  })
-
   return [
     StarterKit.configure({
       // 支持到 6 级（HTML 标准的全集合）。
@@ -87,7 +43,6 @@ export function buildExtensions(placeholder: string): Extensions {
     CodeBlockWithView,
     TaskList,
     TaskItem.configure({ nested: true }),
-    ImageWithAttrs,
     // Table 4 件套：启用内置列宽拖拽；不写自定义 NodeView，靠 editor.css 调样式
     Table.configure({
       resizable: true,

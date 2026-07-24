@@ -2,13 +2,7 @@
 
 import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react'
 import { Fragment, Slice } from '@tiptap/pm/model'
-import { TextSelection } from '@tiptap/pm/state'
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, Plus } from 'lucide-react'
 import { buildExtensions } from '@/lib/tiptap/extensions'
 import { SlashCommand } from '@/lib/tiptap/slash-command'
@@ -23,13 +17,8 @@ import type { PMDoc, Block, IconType } from '@/db/schema'
 import { debounce } from '@/lib/debounce'
 import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
-import { ExternalImageDialog } from './external-image-dialog'
-import { ImageBubbleMenu } from './image-bubble-menu'
-import { ImageLightbox } from './image-lightbox'
-import { ImageActionContext, type ImagePreviewPayload } from './image-action-context'
 import { TableBubbleMenu } from './table-bubble-menu'
 import { TextBubbleMenu } from './text-bubble-menu'
-import { inferImageKind } from '@/lib/markdown/image-url'
 import { cn } from '@/lib/utils'
 import { useEditorScrollFollow } from './use-editor-scroll-follow'
 import { useBlockDrag } from './use-block-drag'
@@ -68,25 +57,6 @@ export function Editor({
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [iconPickerOpen, setIconPickerOpen] = useState(false)
-  // 外链图片 dialog：支持 insert / edit-alt / edit-src 三种模式
-  const [extImgDialog, setExtImgDialog] = useState<{
-    open: boolean
-    mode: 'insert' | 'edit-alt' | 'edit-src'
-    initial?: { url?: string; alt?: string }
-  }>({ open: false, mode: 'insert' })
-  // 图片 lightbox 预览：payload 非空即打开；关闭时置 null
-  const [lightbox, setLightbox] = useState<ImagePreviewPayload | null>(null)
-  const handlePreviewAction = useCallback(
-    (payload: ImagePreviewPayload) => setLightbox(payload),
-    [],
-  )
-  // 切换图片（prev/next）由 lightbox 内部触发，editor 只更新 index：
-  // 不创建新的 payload 对象（保持 images 数组引用稳定，避免 lightbox 不必要的重渲染）
-  const handleIndexChangeAction = useCallback(
-    (index: number) =>
-      setLightbox((prev) => (prev ? { images: prev.images, index } : prev)),
-    [],
-  )
   const existingIdsRef = useRef<string[]>([])
   // 用 ref 持有 editor 引用：useEffect 依赖只有 [pageId]，闭包里捕获的
   // editor 在首次渲染时仍是 null（immediatelyRender:false），靠 ref 才能拿到
@@ -206,35 +176,10 @@ export function Editor({
   // ---------------------------------------------------------------------------
   // Tiptap 实例
   // ---------------------------------------------------------------------------
-  // 外链图片 dialog 触发器：slash menu "图片(外链 URL)" 选中时调用
-  const openExternalImageDialogAction = () =>
-    setExtImgDialog({ open: true, mode: 'insert' })
-
-  // BubbleMenu 「改 alt / 改 src」 触发：读当前 image 节点的 attrs 作 initial
-  const openImageEditDialogAction = (
-    mode: 'edit-alt' | 'edit-src',
-  ) => {
-    if (!editor || editor.isDestroyed) return
-    const attrs = editor.getAttributes('image') as {
-      src?: string | null
-      alt?: string | null
-    }
-    setExtImgDialog({
-      open: true,
-      mode,
-      initial: {
-        url: attrs.src ?? undefined,
-        alt: attrs.alt ?? undefined,
-      },
-    })
-  }
-
   const editor = useEditor({
     extensions: [
       ...buildExtensions('输入 / 唤出菜单，或直接开始书写…'),
-      SlashCommand.configure({
-        onSelectExternalImageAction: openExternalImageDialogAction,
-      }),
+      SlashCommand.configure({}),
     ],
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     onCreate: ({ editor }) => {
@@ -255,21 +200,6 @@ export function Editor({
       },
       // 粘贴时智能检测 Markdown → 解析为块；否则走 Tiptap 默认行为
       handlePaste: (view, event) => {
-        const items = event.clipboardData?.items
-        if (items) {
-          // 优先处理剪贴板里的图片（粘贴截图等）
-          for (let i = 0; i < items.length; i++) {
-            const it = items[i]
-            if (it.kind === 'file' && it.type.startsWith('image/')) {
-              const file = it.getAsFile()
-              if (file) {
-                event.preventDefault()
-                void uploadAndInsertImage(view, file, pageId)
-                return true
-              }
-            }
-          }
-        }
         const text = event.clipboardData?.getData('text/plain')
         if (!text || !looksLikeMarkdown(text)) return false
         const parsed = markdownToDoc(text)
@@ -281,22 +211,14 @@ export function Editor({
         view.dispatch(tr)
         return true
       },
-      // 拖入文件：仅接 image/*
-      handleDrop: (view, event, _slice, _moved) => {
-        // 优先识别 block-move 类型：完全交给 gutter 处理，阻止 PM 默认行为
-        // （PM 默认会把拖入的 fragment 当文本插入，会炸）
+      // 拖入：仅识别 block-move（同级块拖拽），其他交给 PM 默认行为
+      handleDrop: (_view, event, _slice, _moved) => {
         const types = event.dataTransfer?.types
         if (types && Array.from(types).includes(BLOCK_MOVE_MIME)) {
           event.preventDefault()
           return true
         }
-        const files = event.dataTransfer?.files
-        if (!files || files.length === 0) return false
-        const file = files[0]
-        if (!file.type.startsWith('image/')) return false
-        event.preventDefault()
-        void uploadAndInsertImage(view, file, pageId)
-        return true
+        return false
       },
     },
     immediatelyRender: false, // SSR 安全
@@ -351,7 +273,6 @@ export function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
 
-  
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -369,111 +290,111 @@ export function Editor({
   }
 
   return (
-    <ImageActionContext.Provider value={{ onPreviewAction: handlePreviewAction }}>
+    <>
       <div className="mx-auto w-full max-w-3xl px-12 py-16">
-      {/* 页面 icon + 标题（横向布局：图标在标题左侧）
-          标题用 contentEditable 而非 input：input 自身的 box 会把 descender 字符
-          （g/j/p/q/y）的下行部分裁掉，并在 box 内部出现滚动条。contentEditable
-          没有这个限制。 */}
-      <div className="mb-8 flex items-center gap-4">
-        <IconPicker
-          value={{ iconType: iconType ?? null, iconValue: iconValue ?? null }}
-          open={iconPickerOpen}
-          onOpenChangeAction={setIconPickerOpen}
-          onChangeAction={(next) => {
-            onIconChangeAction?.(next.iconType, next.iconValue)
-          }}
-          trigger={
-            <button
-              type="button"
-              aria-label={iconValue ? '更换图标' : '添加图标'}
-              className={cn(
-                'group/icon grid h-[78px] w-[78px] shrink-0 place-items-center overflow-hidden rounded-lg transition-colors',
-                'hover:bg-muted/60',
-                !iconValue &&
-                  'border border-dashed border-muted-foreground/30 text-muted-foreground/60 hover:border-muted-foreground/60 hover:text-muted-foreground',
-              )}
-            >
-              {iconValue ? (
-                <span className="flex h-full w-full items-center justify-center">
-                  <span
-                    className={cn(
-                      'flex items-center justify-center',
-                      iconType === 'lucide' ? 'h-14 w-14 pb-1' : 'pb-1 text-[52px] leading-none',
-                    )}
-                  >
-                    {resolveIcon(iconType, iconValue)}
+        {/* 页面 icon + 标题（横向布局：图标在标题左侧）
+            标题用 contentEditable 而非 input：input 自身的 box 会把 descender 字符
+            （g/j/p/q/y）的下行部分裁掉，并在 box 内部出现滚动条。contentEditable
+            没有这个限制。 */}
+        <div className="mb-8 flex items-center gap-4">
+          <IconPicker
+            value={{ iconType: iconType ?? null, iconValue: iconValue ?? null }}
+            open={iconPickerOpen}
+            onOpenChangeAction={setIconPickerOpen}
+            onChangeAction={(next) => {
+              onIconChangeAction?.(next.iconType, next.iconValue)
+            }}
+            trigger={
+              <button
+                type="button"
+                aria-label={iconValue ? '更换图标' : '添加图标'}
+                className={cn(
+                  'group/icon grid h-[78px] w-[78px] shrink-0 place-items-center overflow-hidden rounded-lg transition-colors',
+                  'hover:bg-muted/60',
+                  !iconValue &&
+                    'border border-dashed border-muted-foreground/30 text-muted-foreground/60 hover:border-muted-foreground/60 hover:text-muted-foreground',
+                )}
+              >
+                {iconValue ? (
+                  <span className="flex h-full w-full items-center justify-center">
+                    <span
+                      className={cn(
+                        'flex items-center justify-center',
+                        iconType === 'lucide' ? 'h-14 w-14 pb-1' : 'pb-1 text-[52px] leading-none',
+                      )}
+                    >
+                      {resolveIcon(iconType, iconValue)}
+                    </span>
                   </span>
-                </span>
-              ) : (
-                <span className="flex flex-col items-center gap-1 text-xs opacity-0 transition-opacity group-hover/icon:opacity-100">
-                  <Plus className="h-4 w-4" />
-                  <span>添加图标</span>
-                </span>
-              )}
-            </button>
-          }
-        />
-
-        {/* 标题（H1，不进 Tiptap doc，独立保存） */}
-        <div
-          ref={titleRef}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-label="页面标题"
-          onCompositionStart={() => {
-            isComposingRef.current = true
-          }}
-          onCompositionEnd={(e) => {
-            isComposingRef.current = false
-            const text = e.currentTarget.textContent ?? ''
-            commitTitleAction(text)
-          }}
-          onInput={(e) => {
-            if (isComposingRef.current) return
-            const text = (e.currentTarget as HTMLDivElement).textContent ?? ''
-            commitTitleAction(text)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              editor?.commands.focus('start')
+                ) : (
+                  <span className="flex flex-col items-center gap-1 text-xs opacity-0 transition-opacity group-hover/icon:opacity-100">
+                    <Plus className="h-4 w-4" />
+                    <span>添加图标</span>
+                  </span>
+                )}
+              </button>
             }
-          }}
-          onPaste={(e) => {
-            e.preventDefault()
-            const text = e.clipboardData.getData('text/plain')
-            // 用 execCommand 插入纯文本：会触发 input 事件让 onInput 同步状态。
-            document.execCommand('insertText', false, text)
-          }}
-          data-placeholder="无标题"
-          className="flex-1 cursor-text bg-transparent text-4xl font-bold tracking-tight outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none"
-        />
-      </div>
-
-      {/* 编辑器 + 左侧拖动覆盖层 */}
-      <div
-        ref={editorContainerRef}
-        className="editor-block-container relative"
-        onDragOver={onContainerDragOver}
-        onDrop={onContainerDrop}
-      >
-        <EditorContent editor={editor} />
-        {editor && (
-          <BlockGutter
-            positions={gripPositions}
-            dragState={dragState}
-            hoveredIndex={hoveredIndex}
-            onGripDragStart={onGripDragStart}
-            onGripDragEnd={onGripDragEnd}
           />
-        )}
-      </div>
-    </div>
 
-    {/* 保存状态指示 — 浮动在视口右下角，滚动到文档中段也可见 */}
-    <div
+          {/* 标题（H1，不进 Tiptap doc，独立保存） */}
+          <div
+            ref={titleRef}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label="页面标题"
+            onCompositionStart={() => {
+              isComposingRef.current = true
+            }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false
+              const text = e.currentTarget.textContent ?? ''
+              commitTitleAction(text)
+            }}
+            onInput={(e) => {
+              if (isComposingRef.current) return
+              const text = (e.currentTarget as HTMLDivElement).textContent ?? ''
+              commitTitleAction(text)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                editor?.commands.focus('start')
+              }
+            }}
+            onPaste={(e) => {
+              e.preventDefault()
+              const text = e.clipboardData.getData('text/plain')
+              // 用 execCommand 插入纯文本：会触发 input 事件让 onInput 同步状态。
+              document.execCommand('insertText', false, text)
+            }}
+            data-placeholder="无标题"
+            className="flex-1 cursor-text bg-transparent text-4xl font-bold tracking-tight outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none"
+          />
+        </div>
+
+        {/* 编辑器 + 左侧拖动覆盖层 */}
+        <div
+          ref={editorContainerRef}
+          className="editor-block-container relative"
+          onDragOver={onContainerDragOver}
+          onDrop={onContainerDrop}
+        >
+          <EditorContent editor={editor} />
+          {editor && (
+            <BlockGutter
+              positions={gripPositions}
+              dragState={dragState}
+              hoveredIndex={hoveredIndex}
+              onGripDragStart={onGripDragStart}
+              onGripDragEnd={onGripDragEnd}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* 保存状态指示 — 浮动在视口右下角，滚动到文档中段也可见 */}
+      <div
         className={cn(
           'fixed bottom-6 right-6 z-40',
           'flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3.5 py-1.5',
@@ -502,164 +423,8 @@ export function Editor({
       {/* 选中文字时浮出 BubbleMenu（块类型转换 + 加粗/斜体/删除线/行内 code） */}
       {editor && <TextBubbleMenu editor={editor} />}
 
-      {/* 选中 image 时浮出 BubbleMenu（改 alt / 改 src / 删除） */}
-      {editor && (
-        <ImageBubbleMenu
-          editor={editor}
-          onRequestEditAction={openImageEditDialogAction}
-        />
-      )}
-
       {/* 光标在表格内时浮出 BubbleMenu（行/列插入删除 + 表头切换） */}
       {editor && <TableBubbleMenu editor={editor} />}
-
-      {/* 外链图片 dialog（slash menu 插入 / BubbleMenu 改 alt/改 src 复用） */}
-      <ExternalImageDialog
-        key={
-          extImgDialog.open
-            ? `open-${extImgDialog.mode}-${extImgDialog.initial?.url ?? ''}-${extImgDialog.initial?.alt ?? ''}`
-            : 'closed'
-        }
-        open={extImgDialog.open}
-        onOpenChangeAction={(open) =>
-          setExtImgDialog((s) => ({ ...s, open }))
-        }
-        initial={extImgDialog.initial}
-        mode={extImgDialog.mode}
-        onConfirmAction={({ url, alt, title }) => {
-          if (!editor || editor.isDestroyed) return
-          if (extImgDialog.mode === 'insert') {
-            insertImageWithTrailingParagraph(editor.view, {
-              src: url,
-              alt: alt ?? undefined,
-              title: title ?? undefined,
-              kind: inferImageKind(url),
-            })
-          } else if (extImgDialog.mode === 'edit-src') {
-            editor
-              .chain()
-              .focus()
-              .updateAttributes('image', {
-                src: url,
-                kind: inferImageKind(url),
-              })
-              .run()
-          } else {
-            // edit-alt
-            editor
-              .chain()
-              .focus()
-              .updateAttributes('image', { alt: alt ?? null })
-              .run()
-          }
-        }}
-      />
-
-      {/* 点击图片 → 全屏 lightbox 预览（缩放 / 适应 / 上下张 / 快捷键） */}
-      <ImageLightbox
-        payload={lightbox}
-        onCloseAction={() => setLightbox(null)}
-        onIndexChangeAction={handleIndexChangeAction}
-      />
-    </ImageActionContext.Provider>
+    </>
   )
-}
-
-// -----------------------------------------------------------------------------
-// 公共逻辑：在当前光标处插入 image 节点，并在其后追加一个空 paragraph，
-// 同时把光标显式挪到 trailing paragraph 内。
-//
-// 为什么这套写法：
-//   image 是 block + atomic 节点。早期版本用 `replaceSelectionWith(image) +
-//   tr.insert(sel.from, paragraph)`，在「光标在空段」场景里会产生 doc(image)
-//   + NodeSelection，再 tr.insert 会把 paragraph 插到 image 前面、cursor
-//   仍留在 image 内部，按 Enter 立刻抛
-//   "Inserted content deeper than insertion position"（这正是浏览器
-//   "Called contentMatchAt on a node with invalid content" 报错的同源错误）。
-//
-//   正确做法：用 `replaceWith(from, to, [imageNode, paragraphNode])` 一次
-//   性替换选区为 [image, paragraph]。ProseMirror 会自动把光标所在的
-//   textblock 切分以容纳 image，并在 doc 末尾得到一个 trailing paragraph。
-//   然后用 doc 里的 image 计数（替换前后差 1）定位"刚插入的"那张图，
-//   把光标 setSelection 到它后面的 paragraph 内 —— 否则 cursor 会留在
-//   image 上的 NodeSelection，再次按 Enter 又会爆。
-//
-// 共享给本地上传（uploadAndInsertImage）和外链插入（slash menu / dialog）
-// 两条路径，避免再次出现只补了一边的回归。
-// -----------------------------------------------------------------------------
-function insertImageWithTrailingParagraph(
-  view: import('@tiptap/pm/view').EditorView,
-  attrs: Record<string, unknown>,
-) {
-  const { state, dispatch } = view
-  const imageType = state.schema.nodes.image
-  const paraType = state.schema.nodes.paragraph
-  if (!imageType || !paraType) {
-    console.error('image or paragraph node not in schema')
-    return
-  }
-  const imageNode = imageType.create(attrs)
-  const paragraphNode = paraType.create()
-
-  // 数原 doc 里 image 的数量。插入后第 N+1 个 image 就是刚插入的。
-  let originalImageCount = 0
-  state.doc.descendants((node) => {
-    if (node.type === imageType) originalImageCount++
-  })
-
-  const { from, to } = state.selection
-  let tr = state.tr.replaceWith(from, to, [imageNode, paragraphNode])
-
-  // 找到刚插入的 image 的绝对位置
-  let imagePos = -1
-  let count = 0
-  tr.doc.descendants((node, pos) => {
-    if (node.type === imageType) {
-      count++
-      if (count === originalImageCount + 1) {
-        imagePos = pos
-        return false
-      }
-    }
-  })
-
-  if (imagePos >= 0) {
-    // image 后面紧跟 trailing paragraph；open token 在 imagePos + imageNode.nodeSize，
-    // cursor 落在 open 之后即可在 paragraph 内正常输入/按 Enter。
-    const cursorPos = imagePos + imageNode.nodeSize + 1
-    tr = tr.setSelection(TextSelection.create(tr.doc, cursorPos))
-  }
-
-  dispatch(tr)
-}
-
-// -----------------------------------------------------------------------------
-// 把图片上传到 /api/upload，拿到 URL 后插入 Image 节点
-// -----------------------------------------------------------------------------
-async function uploadAndInsertImage(
-  view: import('@tiptap/pm/view').EditorView,
-  file: File,
-  pageId: string,
-) {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('pageId', pageId)
-  try {
-    const res = await fetch('/api/upload', { method: 'POST', body: form })
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string }
-      console.error('upload failed', data.error ?? res.status)
-      return
-    }
-    const data = (await res.json()) as { url: string; assetId: string; mime: string }
-    insertImageWithTrailingParagraph(view, {
-      src: data.url,
-      alt: file.name,
-      kind: 'local',
-      width: null,
-      height: null,
-    })
-  } catch (e) {
-    console.error('upload error', e)
-  }
 }

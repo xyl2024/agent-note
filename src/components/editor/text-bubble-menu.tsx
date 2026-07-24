@@ -11,7 +11,6 @@ import { Bold, Italic, Strikethrough, Code, ChevronDown } from 'lucide-react'
 // 显示条件（shouldShow）：
 //   - 选区非空（真选中文字，非光标）
 //   - 代码块内不出（加粗/斜体无意义 + 与 CodeBlockView 冲突）
-//   - 图片选中不出（让位 ImageBubbleMenu）
 //   - 表格内不出（让位 TableBubbleMenu）
 //
 // 内容：块类型下拉（正文/H1-3/列表/待办/引用，不含代码块）+ 加粗/斜体/删除线/行内 code
@@ -141,7 +140,6 @@ export function TextBubbleMenu({ editor }: Props) {
       shouldShow={({ editor, state }) => {
         if (state.selection.empty) return false
         if (editor.isActive('codeBlock')) return false
-        if (editor.isActive('image')) return false
         if (editor.isActive('table')) return false
         return true
       }}

@@ -83,28 +83,10 @@ function renderInline(content: PMNode[] | undefined): string {
   return content
     .map((n) => {
       if (n.type === 'text') return renderText(n)
-      if (n.type === 'image') return renderImage(n)
       // paragraph / 其他 block-like 容器：递归它的 inline content
       return renderInline(n.content)
     })
     .join('')
-}
-
-/** image 节点 → ![alt](url "title") 形态 */
-function renderImage(node: PMNode): string {
-  const attrs = (node.attrs ?? {}) as {
-    src?: string | null
-    alt?: string | null
-    title?: string | null
-  }
-  const src = attrs.src ?? ''
-  const alt = attrs.alt ?? ''
-  const title = attrs.title
-  if (title) {
-    const escaped = title.replace(/"/g, '\\"')
-    return `![${alt}](${src} "${escaped}")`
-  }
-  return `![${alt}](${src})`
 }
 
 /** table cell → GFM table cell 字符串
@@ -190,8 +172,6 @@ function renderBlock(node: PMNode, depth = 0): string {
     }
     case 'horizontalRule':
       return `${indent}---`
-    case 'image':
-      return `${indent}${renderImage(node)}`
     case 'table': {
       const rows = node.content ?? []
       if (rows.length === 0) return ''

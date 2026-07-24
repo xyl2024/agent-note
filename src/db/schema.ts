@@ -97,26 +97,6 @@ export const blocks = sqliteTable(
 )
 
 // -----------------------------------------------------------------------------
-// assets：图片/附件
-// -----------------------------------------------------------------------------
-export const assets = sqliteTable(
-  'assets',
-  {
-    id: text('id').primaryKey(),
-    pageId: text('page_id')
-      .notNull()
-      .references(() => pages.id, { onDelete: 'cascade' }),
-    path: text('path').notNull(),
-    mime: text('mime').notNull(),
-    size: integer('size').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (t) => [index('assets_page_idx').on(t.pageId)],
-)
-
-// -----------------------------------------------------------------------------
 // relations：Drizzle 的关系查询支持
 // 树形结构不需要 relationName（那只是用来区分多个相同表之间的关系）
 // -----------------------------------------------------------------------------
@@ -127,7 +107,6 @@ export const pagesRelations = relations(pages, ({ one, many }) => ({
   }),
   children: many(pages),
   blocks: many(blocks),
-  assets: many(assets),
 }))
 
 export const blocksRelations = relations(blocks, ({ one, many }) => ({
@@ -142,17 +121,8 @@ export const blocksRelations = relations(blocks, ({ one, many }) => ({
   children: many(blocks),
 }))
 
-export const assetsRelations = relations(assets, ({ one }) => ({
-  page: one(pages, {
-    fields: [assets.pageId],
-    references: [pages.id],
-  }),
-}))
-
 // Type exports
 export type Page = typeof pages.$inferSelect
 export type NewPage = typeof pages.$inferInsert
 export type Block = typeof blocks.$inferSelect
 export type NewBlock = typeof blocks.$inferInsert
-export type Asset = typeof assets.$inferSelect
-export type NewAsset = typeof assets.$inferInsert

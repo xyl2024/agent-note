@@ -9,7 +9,7 @@ import type { Editor } from '@tiptap/react'
 //   - 列：插入左侧 / 插入右侧 / 删除当前列
 //   - 表头：切换首行 header 状态
 //
-// 仿照 image-bubble-menu.tsx 的写法：onMouseDown 全部 preventDefault 避免失焦。
+// 所有按钮的 onMouseDown 全部 preventDefault 避免失焦。
 // 列宽拖拽由 @tiptap/extension-table 的 resizable: true 提供，无需在此暴露按钮。
 // -----------------------------------------------------------------------------
 

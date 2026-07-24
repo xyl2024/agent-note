@@ -1,14 +1,3 @@
-CREATE TABLE `assets` (
-	`id` text PRIMARY KEY NOT NULL,
-	`page_id` text NOT NULL,
-	`path` text NOT NULL,
-	`mime` text NOT NULL,
-	`size` integer NOT NULL,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`page_id`) REFERENCES `pages`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE INDEX `assets_page_idx` ON `assets` (`page_id`);--> statement-breakpoint
 CREATE TABLE `blocks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`page_id` text NOT NULL,

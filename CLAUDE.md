@@ -28,7 +28,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | API 端到端测试 | `bash scripts/test-api.sh`（需 `pnpm dev` 在跑） |
 | 编辑器保存往返测试 | `bash scripts/test-editor-save.sh` |
 | 搜索功能测试 | `bash scripts/test-search.sh` |
-| 上传功能测试 | `bash scripts/test-upload.sh` |
 | Markdown 解析/序列化 | `node --import tsx scripts/test-markdown.mjs` |
 
 测试脚本都是 bash + curl（除 markdown 是 Node），要求 dev server 已在 `localhost:3000` 跑起来。
@@ -67,14 +66,13 @@ src/
 │   └── utils.ts               # cn() 等
 └── db/
     ├── client.ts              # better-sqlite3 + drizzle 单例，bootstrap 自愈
-    ├── schema.ts              # 4 张表（pages/blocks/assets + 关系）
+    ├── schema.ts              # 3 张表（pages/blocks + 关系）
     ├── init.ts                # bootstrap() — 建表 + FTS5 虚表 + 触发器
     ├── fts.ts                 # FTS5 索引读写 + MATCH 查询辅助
     ├── backfill-fts.ts
     └── migrate.ts             # `pnpm db:migrate` 入口
 data/                          # 运行时数据（不入 git）
-├── notes.db + .db-shm + .db-wal
-└── uploads/YYYY-MM/<uuid>.<ext>   # 图片 / 附件
+└── notes.db + .db-shm + .db-wal
 ```
 
 ### 数据模型（`src/db/schema.ts`）
@@ -83,7 +81,6 @@ data/                          # 运行时数据（不入 git）
 |---|---|---|
 | `pages` | id, parentId(自引用), title, slug, iconType('emoji'/'lucide'), iconValue, createdAt, updatedAt | 树形结构，索引 `parentId` + `updatedAt` |
 | `blocks` | id, pageId, parentBlockId, order(**REAL**), type, content(JSON, ProseMirror Node), createdAt, updatedAt | 一篇笔记的块；`order` 用 REAL 以便拖到中间；级联删 page |
-| `assets` | id, pageId, path, mime, size, createdAt | `path = "uploads/YYYY-MM/<id>.<ext>"`；级联删 page |
 
 **FTS5 虚表**（在 `init.ts` 用 `sqlite.exec()` 手动建，Drizzle 不支持）：
 - `blocks_fts(tokens, page_id, block_id)` + INSERT/DELETE/UPDATE 触发器（触发器只建空行，tokens 由应用层写）
@@ -101,8 +98,6 @@ API（都在 `src/app/api/`，Node runtime）：
 | `GET/PATCH/DELETE` | `/api/pages/[id]` | 读 / 改标题和图标 / 级联删除 |
 | `GET/PUT` | `/api/pages/[id]/blocks` | 读所有块 / 全量替换（用于保存整个 doc） |
 | `PATCH/DELETE` | `/api/blocks/[id]` | 单块更新（order/type/content） / 删除 |
-| `POST` | `/api/upload` | 图片/文件 → `data/uploads/YYYY-MM/` + assets 表 |
-| `GET` | `/api/files/[id]` | 读 asset 字节流 |
 | `GET` | `/api/search` | FTS5 全站搜索（页面 + 块） |
 | `GET` | `/api/stats` | 首页统计 |
 | `GET` | `/api/favicon/[id]` | 页面图标作为 favicon |
@@ -114,23 +109,7 @@ API（都在 `src/app/api/`，Node runtime）：
 - 改 props 中的函数必须以 `Action` 结尾（Next.js 16 Client Component 硬要求）：`onTitleChangeAction` / `createPageAction` ...
 - 自己写的 Mark / Extension：`SlashCommand`（/ 菜单）、`HeadingAnchor`（标题 # 链接）。
 - Markdown 粘贴：`looksLikeMarkdown()` 判定 → `markdownToDoc()` 转 ProseMirror JSON。
-- 图片粘贴/拖拽走 `POST /api/upload`，回填 URL。
 - 保存防抖：`debounce()` → `PUT /api/pages/[id]/blocks` 全量提交块数组。
-
-### 图片节点（`src/components/editor/image-node-view.tsx` + `image-bubble-menu.tsx`）
-
-- **attrs**：`src / alt / title / kind / width / height`
-  - `kind: 'local' | 'external'`，默认 `'local'`（老 JSON 缺失时安全 fallback）
-  - src 协议白名单：http/https（dialog 校验）+ markdown 解析也严格（非白名单 URL 整体降级为段落文字）
-- **渲染**：`renderHTML` 排除 `kind`，固定输出 `loading="lazy" decoding="async" referrerpolicy="no-referrer"`
-- **NodeView**（`image-node-view.tsx`）：
-  - `kind === 'external'` 时右上角显示「外部」徽标
-  - 选中时右下角显示拖拽手柄，等比改写 `width`/`height`（mouseup 时一次性 `updateAttributes`）
-- **BubbleMenu**（`image-bubble-menu.tsx`）：选中 image 时浮出 3 按钮 — 改 alt / 改 src / 删除
-- **插入入口**：
-  - 本地图：粘贴/拖拽文件 → `POST /api/upload` → `kind: 'local'`
-  - 外链图：slash menu `/图片` 选 "图片(外链 URL)" → `ExternalImageDialog`（URL + alt + title，URL 实时校验 http/https）→ `kind: 'external'`
-- **协议工具**：`src/lib/markdown/image-url.ts` 提供 `inferImageKind / isHttpUrl / isLocalApiUrl / isRenderableImageSrc`
 
 # 参考
 

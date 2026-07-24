@@ -27,7 +27,6 @@ This file provides guidance to Coding Agent Harness when working with code in th
 | API 端到端测试 | `bash scripts/test-api.sh`（需 `pnpm dev` 在跑） |
 | 编辑器保存往返测试 | `bash scripts/test-editor-save.sh` |
 | 搜索功能测试 | `bash scripts/test-search.sh` |
-| 上传功能测试 | `bash scripts/test-upload.sh` |
 | Markdown 解析/序列化 | `node --import tsx scripts/test-markdown.mjs` |
 
 测试脚本都是 bash + curl（除 markdown 是 Node），要求 dev server 已在 `localhost:3000` 跑起来。
@@ -66,14 +65,13 @@ src/
 │   └── utils.ts               # cn() 等
 └── db/
     ├── client.ts              # better-sqlite3 + drizzle 单例，bootstrap 自愈
-    ├── schema.ts              # 4 张表（pages/blocks/assets + 关系）
+    ├── schema.ts              # 3 张表（pages/blocks + 关系）
     ├── init.ts                # bootstrap() — 建表 + FTS5 虚表 + 触发器
     ├── fts.ts                 # FTS5 索引读写 + MATCH 查询辅助
     ├── backfill-fts.ts
     └── migrate.ts             # `pnpm db:migrate` 入口
 data/                          # 运行时数据（不入 git）
-├── notes.db + .db-shm + .db-wal
-└── uploads/YYYY-MM/<uuid>.<ext>   # 图片 / 附件
+└── notes.db + .db-shm + .db-wal
 ```
 
 ### 数据模型（`src/db/schema.ts`）
@@ -82,7 +80,6 @@ data/                          # 运行时数据（不入 git）
 |---|---|---|
 | `pages` | id, parentId(自引用), title, slug, iconType('emoji'/'lucide'), iconValue, createdAt, updatedAt | 树形结构，索引 `parentId` + `updatedAt` |
 | `blocks` | id, pageId, parentBlockId, order(**REAL**), type, content(JSON, ProseMirror Node), createdAt, updatedAt | 一篇笔记的块；`order` 用 REAL 以便拖到中间；级联删 page |
-| `assets` | id, pageId, path, mime, size, createdAt | `path = "uploads/YYYY-MM/<id>.<ext>"`；级联删 page |
 
 **FTS5 虚表**（在 `init.ts` 用 `sqlite.exec()` 手动建，Drizzle 不支持）：
 - `blocks_fts(tokens, page_id, block_id)` + INSERT/DELETE/UPDATE 触发器（触发器只建空行，tokens 由应用层写）
@@ -100,8 +97,6 @@ API（都在 `src/app/api/`，Node runtime）：
 | `GET/PATCH/DELETE` | `/api/pages/[id]` | 读 / 改标题和图标 / 级联删除 |
 | `GET/PUT` | `/api/pages/[id]/blocks` | 读所有块 / 全量替换（用于保存整个 doc） |
 | `PATCH/DELETE` | `/api/blocks/[id]` | 单块更新（order/type/content） / 删除 |
-| `POST` | `/api/upload` | 图片/文件 → `data/uploads/YYYY-MM/` + assets 表 |
-| `GET` | `/api/files/[id]` | 读 asset 字节流 |
 | `GET` | `/api/search` | FTS5 全站搜索（页面 + 块） |
 | `GET` | `/api/stats` | 首页统计 |
 | `GET` | `/api/favicon/[id]` | 页面图标作为 favicon |
@@ -113,5 +108,4 @@ API（都在 `src/app/api/`，Node runtime）：
 - 改 props 中的函数必须以 `Action` 结尾（Next.js 16 Client Component 硬要求）：`onTitleChangeAction` / `onPageLinkClickAction` / `createPageAction` ...
 - 自己写的 Mark / Extension：`PageLink`（双链）、`SlashCommand`（/ 菜单）、`HeadingAnchor`（标题 # 链接）。
 - Markdown 粘贴：`looksLikeMarkdown()` 判定 → `markdownToDoc()` 转 ProseMirror JSON。
-- 图片粘贴/拖拽走 `POST /api/upload`，回填 URL。
 - 保存防抖：`debounce()` → `PUT /api/pages/[id]/blocks` 全量提交块数组。
