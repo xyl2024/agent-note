@@ -35,7 +35,7 @@ export const SlashCommand = Extension.create({
     return [
       Suggestion({
         editor: this.editor,
-        // 必填：与 PageLinkSuggestion 区分，否则 PM 报 "Adding different instances of a keyed plugin (suggestion$)"
+        // 必填：自定义 pluginKey 避免 PM 报 "Adding different instances of a keyed plugin (suggestion$)"
         pluginKey: new PluginKey('agentNoteSlashCommandSuggestion'),
         char: '/',
         startOfLine: false,

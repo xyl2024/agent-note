@@ -4,17 +4,13 @@ import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/r
 import { Fragment, Slice } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useRef,
   useState,
 } from 'react'
 import { Loader2, Save, Plus } from 'lucide-react'
 import { buildExtensions } from '@/lib/tiptap/extensions'
-import { PageLink } from '@/lib/tiptap/page-link'
-import { PageLinkSuggestion } from '@/lib/tiptap/page-link-suggestion'
 import { SlashCommand } from '@/lib/tiptap/slash-command'
 import { extractHeadings, type HeadingItem } from '@/lib/tiptap/heading-anchor'
 import { blocksToTiptapDoc, tiptapDocToSaveBlocks } from '@/lib/tiptap/doc-blocks'
@@ -23,7 +19,7 @@ import {
   markdownToDoc,
   looksLikeMarkdown,
 } from '@/lib/markdown'
-import type { PMDoc, Block, Page, IconType } from '@/db/schema'
+import type { PMDoc, Block, IconType } from '@/db/schema'
 import { debounce } from '@/lib/debounce'
 import { resolveIcon } from '@/lib/icon-resolver'
 import { IconPicker } from '@/components/icon-picker'
@@ -45,7 +41,6 @@ const BLOCK_MOVE_MIME = 'application/x-block-move'
 
 // -----------------------------------------------------------------------------
 // Editor 主组件
-// 通过 forwardRef 暴露 updatePageLinkByTitle 供 AppShell 在创建页面后回填
 // -----------------------------------------------------------------------------
 type Props = {
   pageId: string
@@ -54,36 +49,21 @@ type Props = {
   iconValue: string | null
   // Next.js 16 要求 Client Component props 中的函数以 Action 结尾或为 Server Action
   onTitleChangeAction?: (newTitle: string) => void
-  onPageLinkClickAction?: (pageId: string | null, pageTitle: string) => void
   onHeadingsChangeAction?: (headings: HeadingItem[]) => void
   onIconChangeAction?: (iconType: IconType | null, iconValue: string | null) => void
-  createPageAction?: (title: string) => Promise<Page>
-}
-
-export type EditorHandle = {
-  /**
-   * 把 doc 里所有 pageLink{pageTitle === oldTitle, pageId === null}
-   * 的 mark 改成 pageId = newId。给 AppShell 在 Dialog 创建完页面后回填用。
-   */
-  updatePageLinkByTitleAction: (oldTitle: string, newId: string) => void
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  {
-    pageId,
-    title,
-    iconType,
-    iconValue,
-    onTitleChangeAction,
-    onPageLinkClickAction,
-    onHeadingsChangeAction,
-    onIconChangeAction,
-    createPageAction,
-  },
-  ref,
-) {
+export function Editor({
+  pageId,
+  title,
+  iconType,
+  iconValue,
+  onTitleChangeAction,
+  onHeadingsChangeAction,
+  onIconChangeAction,
+}: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
@@ -224,35 +204,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   ).current
 
   // ---------------------------------------------------------------------------
-  // 搜索页面（pageLink suggestion 用）
-  // ---------------------------------------------------------------------------
-  const searchPagesAction = async (query: string, signal: AbortSignal) => {
-    if (!query) {
-      // 空 query：返回最近更新的页面作为推荐
-      const res = await fetch('/api/pages', { signal })
-      if (!res.ok) return []
-      const data = (await res.json()) as { pages: Page[] }
-      return data.pages.slice(0, 10).map((p) => ({
-        pageId: p.id,
-        pageTitle: p.title,
-      }))
-    }
-    const url = `/api/pages?title=${encodeURIComponent(query)}`
-    const res = await fetch(url, { signal })
-    if (!res.ok) return []
-    const data = (await res.json()) as { pages: Page[] }
-    return data.pages.map((p) => ({ pageId: p.id, pageTitle: p.title }))
-  }
-
-  const createPageFromSuggestionAction = async (title: string) => {
-    const page = await createPageAction?.(title)
-    return {
-      pageId: page?.id ?? null,
-      pageTitle: page?.title ?? title,
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // Tiptap 实例
   // ---------------------------------------------------------------------------
   // 外链图片 dialog 触发器：slash menu "图片(外链 URL)" 选中时调用
@@ -280,12 +231,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 
   const editor = useEditor({
     extensions: [
-      ...buildExtensions('输入 / 唤出菜单，输入 [[ 链接页面，或直接开始书写…'),
-      PageLink,
-      PageLinkSuggestion.configure({
-        searchAction: searchPagesAction,
-        createAction: createPageFromSuggestionAction,
-      }),
+      ...buildExtensions('输入 / 唤出菜单，或直接开始书写…'),
       SlashCommand.configure({
         onSelectExternalImageAction: openExternalImageDialogAction,
       }),
@@ -333,8 +279,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         const slice = new Slice(fragment, 0, 0)
         const tr = view.state.tr.replaceSelection(slice)
         view.dispatch(tr)
-        // 异步解析 wikilink（粘贴后给 pageLink mark 补 pageId）
-        resolveWikilinkInDoc(view, nodes)
         return true
       },
       // 拖入文件：仅接 image/*
@@ -352,20 +296,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         if (!file.type.startsWith('image/')) return false
         event.preventDefault()
         void uploadAndInsertImage(view, file, pageId)
-        return true
-      },
-      // 点击拦截：点 pageLink 时不让浏览器跳转，转交 AppShell
-      handleClickOn: (_view, _pos, node, _nodePos, event) => {
-        if (node.type.name !== 'text') return false
-        const link = node.marks.find((m) => m.type.name === 'pageLink')
-        if (!link) return false
-        const target = event.target as HTMLElement
-        if (!target.closest('a.page-link')) return false
-        event.preventDefault()
-        const pageId = (link.attrs as { pageId?: string | null }).pageId ?? null
-        const pageTitle =
-          (link.attrs as { pageTitle?: string }).pageTitle ?? node.text ?? ''
-        onPageLinkClickAction?.(pageId, pageTitle)
         return true
       },
     },
@@ -421,20 +351,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading])
 
-  // ---------------------------------------------------------------------------
-  // 暴露给父组件的命令式方法：创建完页面后回填 pageLink mark
-  // ---------------------------------------------------------------------------
-  useImperativeHandle(
-    ref,
-    () => ({
-      updatePageLinkByTitleAction: (oldTitle: string, newId: string) => {
-        if (!editor || editor.isDestroyed) return
-        updatePageLinkByTitle(editor.view, oldTitle, newId)
-      },
-    }),
-    [editor],
-  )
-
+  
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -646,7 +563,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       />
     </ImageActionContext.Provider>
   )
-})
+}
 
 // -----------------------------------------------------------------------------
 // 公共逻辑：在当前光标处插入 image 节点，并在其后追加一个空 paragraph，
@@ -745,84 +662,4 @@ async function uploadAndInsertImage(
   } catch (e) {
     console.error('upload error', e)
   }
-}
-
-// -----------------------------------------------------------------------------
-// 异步把 doc 里所有 pageLink mark（pageId 为 null）解析成真实 pageId
-// -----------------------------------------------------------------------------
-async function resolveWikilinkInDoc(
-  view: import('@tiptap/pm/view').EditorView,
-  nodes: import('@/db/schema').PMNode[],
-) {
-  // 收集所有 pageId=null 且 pageTitle 非空的 pageLink
-  const targets = collectUnresolvedLinks(nodes)
-  if (targets.size === 0) return
-
-  // 对每个 title 查一次
-  for (const title of targets) {
-    try {
-      const res = await fetch(`/api/pages?title=${encodeURIComponent(title)}`)
-      if (!res.ok) continue
-      const data = (await res.json()) as { pages: Page[] }
-      // 不区分大小写精确匹配
-      const hit = data.pages.find(
-        (p) => p.title.toLowerCase() === title.toLowerCase(),
-      )
-      if (!hit) continue
-      // 在 doc 里把所有 pageTitle=title 的 pageLink mark 改成 pageId=hit.id
-      updatePageLinkByTitle(view, title, hit.id)
-    } catch {
-      // 网络错误 → 跳过
-    }
-  }
-}
-
-function collectUnresolvedLinks(nodes: import('@/db/schema').PMNode[]): Set<string> {
-  const out = new Set<string>()
-  const walk = (ns: import('@/db/schema').PMNode[]) => {
-    for (const n of ns) {
-      if (n.marks) {
-        for (const m of n.marks) {
-          if (
-            m.type === 'pageLink' &&
-            (m.attrs?.pageId == null || m.attrs.pageId === '') &&
-            typeof m.attrs?.pageTitle === 'string' &&
-            m.attrs.pageTitle.length > 0
-          ) {
-            out.add(m.attrs.pageTitle)
-          }
-        }
-      }
-      if (n.content) walk(n.content)
-    }
-  }
-  walk(nodes)
-  return out
-}
-
-function updatePageLinkByTitle(
-  view: import('@tiptap/pm/view').EditorView,
-  oldTitle: string,
-  newId: string,
-) {
-  const { state, dispatch } = view
-  const tr = state.tr
-  const markType = state.schema.marks.pageLink
-  if (!markType) return
-  let changed = false
-  state.doc.descendants((node, pos) => {
-    if (!node.isText) return
-    const link = node.marks.find((m) => m.type === markType)
-    if (!link) return
-    if ((link.attrs.pageTitle ?? '') !== oldTitle) return
-    if (link.attrs.pageId) return
-    tr.removeMark(pos, pos + node.nodeSize, markType)
-    tr.addMark(
-      pos,
-      pos + node.nodeSize,
-      markType.create({ pageId: newId, pageTitle: oldTitle }),
-    )
-    changed = true
-  })
-  if (changed) dispatch(tr)
 }

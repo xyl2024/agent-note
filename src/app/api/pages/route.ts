@@ -8,7 +8,7 @@ import { getPageRowid, indexPageTokens } from '@/db/fts'
 // -----------------------------------------------------------------------------
 // GET /api/pages — 列出所有页面（按更新时间倒序，附带 parentId 用于构建树）
 // 可选 query 参数：
-//   - title=<keyword> 模糊匹配（双向链接 suggestion 用）
+//   - title=<keyword> 模糊匹配
 // -----------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
   const title = request.nextUrl.searchParams.get('title')?.trim() ?? ''

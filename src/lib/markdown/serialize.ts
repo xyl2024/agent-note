@@ -15,14 +15,6 @@ const BLOCK_SEP = '\n\n'
 /** 把一个 text 节点的 marks 应用为 inline markdown */
 function renderText(node: PMNode): string {
   if (!node.text) return ''
-  // pageLink 单独处理：输出 [[Title]]（最外层），不参与 bold/italic 等嵌套
-  const pageLink = node.marks?.find((m) => m.type === 'pageLink')
-  if (pageLink) {
-    const title = String(
-      (pageLink.attrs as { pageTitle?: string } | undefined)?.pageTitle ?? node.text,
-    )
-    return `[[${title}]]`
-  }
   // 把 link mark 单独拿出来，bold/italic/strike/code 嵌套处理
   const link = node.marks?.find((m) => m.type === 'link')
   let out = escapeText(node.text)
@@ -48,9 +40,6 @@ function applyMark(text: string, mark: PMMark): string {
       return renderCodeSpan(text)
     case 'link':
       // link 由 renderText 单独处理，这里 no-op
-      return text
-    case 'pageLink':
-      // pageLink 由 renderText 单独处理，这里 no-op
       return text
     default:
       return text

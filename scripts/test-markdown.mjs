@@ -61,7 +61,6 @@ runSection('looksLikeMarkdown', () => {
   eq('strike', looksLikeMarkdown('this is ~~struck~~'), true)
   eq('code', looksLikeMarkdown('this is `code`'), true)
   eq('link', looksLikeMarkdown('click [here](https://x)'), true)
-  eq('wikilink', looksLikeMarkdown('see [[Foo]] for more'), true)
   eq('image', looksLikeMarkdown('![alt](https://x.com/y.png)'), true)
   eq('image with title', looksLikeMarkdown('![alt](https://x.com/y.png "title")'), true)
   eq('table basic', looksLikeMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'), true)
@@ -183,47 +182,12 @@ runSection('docToMarkdown', () => {
     '---',
   )
 
-  eqStr('wikilink',
+  eqStr('plain wikilink text round-trips literally',
     docToMarkdown({
       type: 'doc',
       content: [{
         type: 'paragraph',
-        content: [{
-          type: 'text',
-          text: 'Foo',
-          marks: [{ type: 'pageLink', attrs: { pageId: 'abc', pageTitle: 'Foo' } }],
-        }],
-      }],
-    }),
-    '[[Foo]]',
-  )
-
-  eqStr('wikilink (pageId=null still serializes title)',
-    docToMarkdown({
-      type: 'doc',
-      content: [{
-        type: 'paragraph',
-        content: [{
-          type: 'text',
-          text: 'Bar',
-          marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Bar' } }],
-        }],
-      }],
-    }),
-    '[[Bar]]',
-  )
-
-  eqStr('wikilink with surrounding text',
-    docToMarkdown({
-      type: 'doc',
-      content: [{
-        type: 'paragraph',
-        content: [
-          { type: 'text', text: 'see ' },
-          { type: 'text', text: 'Foo',
-            marks: [{ type: 'pageLink', attrs: { pageId: 'x', pageTitle: 'Foo' } }] },
-          { type: 'text', text: ' for more' },
-        ],
+        content: [{ type: 'text', text: 'see [[Foo]] for more' }],
       }],
     }),
     'see [[Foo]] for more',
@@ -540,54 +504,36 @@ runSection('markdownToDoc', () => {
     },
   )
 
-  eq('wikilink in paragraph',
+  eq('wikilink text stays as plain text (no pageLink mark)',
     markdownToDoc('see [[Foo]] for more'),
     {
       type: 'doc',
       content: [{
         type: 'paragraph',
-        content: [
-          { type: 'text', text: 'see ' },
-          {
-            type: 'text',
-            text: 'Foo',
-            marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Foo' } }],
-          },
-          { type: 'text', text: ' for more' },
-        ],
+        content: [{ type: 'text', text: 'see [[Foo]] for more' }],
       }],
     },
   )
 
-  eq('wikilink with title containing spaces',
+  eq('wikilink text with spaces stays as plain text',
     markdownToDoc('[[My Note Title]]'),
     {
       type: 'doc',
       content: [{
         type: 'paragraph',
-        content: [{
-          type: 'text',
-          text: 'My Note Title',
-          marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'My Note Title' } }],
-        }],
+        content: [{ type: 'text', text: '[[My Note Title]]' }],
       }],
     },
   )
 
-  eq('wikilink and link coexist',
+  eq('wikilink text coexists with regular link',
     markdownToDoc('see [[Foo]] or [Bar](https://x)'),
     {
       type: 'doc',
       content: [{
         type: 'paragraph',
         content: [
-          { type: 'text', text: 'see ' },
-          {
-            type: 'text',
-            text: 'Foo',
-            marks: [{ type: 'pageLink', attrs: { pageId: null, pageTitle: 'Foo' } }],
-          },
-          { type: 'text', text: ' or ' },
+          { type: 'text', text: 'see [[Foo]] or ' },
           {
             type: 'text',
             text: 'Bar',

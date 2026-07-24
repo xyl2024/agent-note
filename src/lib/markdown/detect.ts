@@ -12,7 +12,7 @@ export function looksLikeMarkdown(text: string): boolean {
   const blockRe = /(^|\n)(#{1,6} |\*{3,}|-{3,}|`{3,}|>\s|[-*+]\s+\[[ xX]\]|[-*+]\s|\d+\.\s|\|[^\n]*\|[^\n]*\|)/
   if (blockRe.test(text)) return true
   // 行内 mark 特征（image 语法 `![alt](url)` 与 link 同形，加在前面更早命中）
-  const inlineRe = /(!\[[^\]]*\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]\n]+\]\])/
+  const inlineRe = /(!\[[^\]]*\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)\s]+\))/
   if (inlineRe.test(text)) return true
   return false
 }

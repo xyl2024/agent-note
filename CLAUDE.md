@@ -111,8 +111,8 @@ API（都在 `src/app/api/`，Node runtime）：
 
 - Tiptap 3 + React。`useEditor` 时必须 `immediatelyRender: false`（SSR 必需）。
 - `<Editor key={pageId} ... />` —— 切换笔记时强制重挂。
-- 改 props 中的函数必须以 `Action` 结尾（Next.js 16 Client Component 硬要求）：`onTitleChangeAction` / `onPageLinkClickAction` / `createPageAction` ...
-- 自己写的 Mark / Extension：`PageLink`（双链）、`SlashCommand`（/ 菜单）、`HeadingAnchor`（标题 # 链接）。
+- 改 props 中的函数必须以 `Action` 结尾（Next.js 16 Client Component 硬要求）：`onTitleChangeAction` / `createPageAction` ...
+- 自己写的 Mark / Extension：`SlashCommand`（/ 菜单）、`HeadingAnchor`（标题 # 链接）。
 - Markdown 粘贴：`looksLikeMarkdown()` 判定 → `markdownToDoc()` 转 ProseMirror JSON。
 - 图片粘贴/拖拽走 `POST /api/upload`，回填 URL。
 - 保存防抖：`debounce()` → `PUT /api/pages/[id]/blocks` 全量提交块数组。

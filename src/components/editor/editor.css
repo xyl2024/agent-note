@@ -479,33 +479,6 @@
 }
 
 /* -----------------------------------------------------------------------------
-   PageLink (双向链接)
-   ----------------------------------------------------------------------------- */
-.tiptap a.page-link {
-  color: var(--primary);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  transition: text-decoration-thickness 100ms ease;
-}
-.tiptap a.page-link:hover {
-  text-decoration-thickness: 2px;
-}
-
-/* 未解析（pageId 为 null）：红色虚线 */
-.tiptap a.page-link:not([data-page-id]) {
-  color: var(--destructive);
-  text-decoration: underline dashed;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  cursor: help;
-}
-.tiptap a.page-link:not([data-page-id]):hover {
-  text-decoration-thickness: 2px;
-}
-
-/* -----------------------------------------------------------------------------
    图片
    ----------------------------------------------------------------------------- */
 .tiptap img {

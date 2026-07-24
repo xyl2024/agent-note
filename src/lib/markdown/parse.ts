@@ -18,10 +18,9 @@ import { inferImageKind, isRenderableImageSrc } from './image-url'
 type MarkSpec = { type: string; attrs?: Record<string, unknown> }
 
 function tokenizeInline(text: string): PMNode[] {
-  // 先提取三种特殊形式：image ![alt](url)、pageLink [[Title]] 和 link [text](href)
-  // 顺序：image(以 ! 起手最具体) → pageLink → link
+  // 先提取两种特殊形式：image ![alt](url) 和 link [text](href)
+  // 顺序：image(以 ! 起手最具体) → link
   const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g
-  const pageLinkRegex = /\[\[([^\[\]\n]+)\]\]/g
   const linkRegex = /\[([^\]]+)\]\(([^)\s]+)\)/g
   const out: PMNode[] = []
   let cursor = 0
@@ -54,22 +53,10 @@ function tokenizeInline(text: string): PMNode[] {
   const isInsideImage = (pos: number) =>
     imageMatches.some((im) => pos >= im.start && pos < im.end)
 
-  // 第二遍：pageLink，跳过 image 范围
-  const pageLinkMatches: { start: number; end: number; title: string }[] = []
-  pageLinkRegex.lastIndex = 0
-  while ((m = pageLinkRegex.exec(text)) !== null) {
-    if (isInsideImage(m.index)) continue
-    pageLinkMatches.push({ start: m.index, end: m.index + m[0].length, title: m[1] })
-  }
-
-  const isInsidePageLink = (pos: number) =>
-    pageLinkMatches.some((pm) => pos >= pm.start && pos < pm.end)
-
-  // 第三遍：link，跳过 image / pageLink 范围
+  // 第二遍：link，跳过 image 范围
   const linkMatches: { start: number; end: number; text: string; href: string }[] = []
   while ((m = linkRegex.exec(text)) !== null) {
     if (isInsideImage(m.index)) continue
-    if (isInsidePageLink(m.index)) continue
     linkMatches.push({ start: m.index, end: m.index + m[0].length, text: m[1], href: m[2] })
   }
 
@@ -85,12 +72,10 @@ function tokenizeInline(text: string): PMNode[] {
         title: string | null
         renderable: boolean
       }
-    | { kind: 'pageLink'; start: number; end: number; title: string }
     | { kind: 'link'; start: number; end: number; text: string; href: string }
 
   const spans: Span[] = [
     ...imageMatches.map((im) => ({ kind: 'image' as const, ...im })),
-    ...pageLinkMatches.map((pm) => ({ kind: 'pageLink' as const, ...pm })),
     ...linkMatches.map((lm) => ({ kind: 'link' as const, ...lm })),
   ].sort((a, b) => a.start - b.start)
 
@@ -99,19 +84,7 @@ function tokenizeInline(text: string): PMNode[] {
     if (span.start > cursor) {
       out.push(...tokenizeNonLink(text.slice(cursor, span.start)))
     }
-    if (span.kind === 'pageLink') {
-      // pageLink 的 pageId 为 null：异步 resolver 会补
-      out.push({
-        type: 'text',
-        text: span.title,
-        marks: [
-          {
-            type: 'pageLink',
-            attrs: { pageId: null, pageTitle: span.title },
-          },
-        ],
-      })
-    } else if (span.kind === 'link') {
+    if (span.kind === 'link') {
       const inner = tokenizeNonLink(span.text)
       const linkMark: MarkSpec = { type: 'link', attrs: { href: span.href } }
       for (const n of inner) {

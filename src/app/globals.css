@@ -148,8 +148,8 @@
   html {
     @apply font-sans;
   }
-  /* 普通外链默认蓝色带下划线（双链 .page-link 自带样式覆盖优先级更高） */
-  a:not(.page-link) {
+  /* 外链默认蓝色带下划线 */
+  a {
     color: var(--accent-foreground);
     text-decoration: underline;
     text-underline-offset: 2px;
