@@ -3,7 +3,7 @@ import type { PMDoc, PMMark, PMNode } from '@/db/schema'
 // -----------------------------------------------------------------------------
 // Tiptap PMDoc → Markdown 字符串
 //
-// 支持的块：heading(1-3), paragraph, bulletList, orderedList, taskList,
+// 支持的块：heading(1-6), paragraph, bulletList, orderedList, taskList,
 //          codeBlock, blockquote, horizontalRule
 // 支持的 mark：bold, italic, strike, code, link
 //
@@ -142,7 +142,8 @@ function renderBlock(node: PMNode, depth = 0): string {
   const indent = '  '.repeat(depth)
   switch (node.type) {
     case 'heading': {
-      const level = Math.min(3, Math.max(1, Number(node.attrs?.level ?? 1)))
+      // clamp 到 schema 允许范围（1-6），越界值（如脏数据）落到端点
+      const level = Math.min(6, Math.max(1, Number(node.attrs?.level ?? 1)))
       return `${indent}${'#'.repeat(level)} ${renderInline(node.content)}`
     }
     case 'paragraph':

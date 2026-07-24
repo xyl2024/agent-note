@@ -60,6 +60,30 @@ export const SLASH_ITEMS: SlashItem[] = [
     },
   },
   {
+    title: '四级标题',
+    description: '次标题',
+    keywords: ['h4', 'heading'],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 4 }).run()
+    },
+  },
+  {
+    title: '五级标题',
+    description: '小节标题',
+    keywords: ['h5', 'heading'],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 5 }).run()
+    },
+  },
+  {
+    title: '六级标题',
+    description: '细分标题',
+    keywords: ['h6', 'heading'],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).setNode('heading', { level: 6 }).run()
+    },
+  },
+  {
     title: '无序列表',
     description: '• 列表项',
     keywords: ['bullet', 'list', 'ul', '无序'],

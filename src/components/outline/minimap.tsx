@@ -25,12 +25,18 @@ const BAR_WIDTH: Record<number, string> = {
   1: 'w-6',
   2: 'w-4.5',
   3: 'w-3',
+  4: 'w-2',
+  5: 'w-1.5',
+  6: 'w-1',
 }
 
 const INDENT: Record<number, string> = {
   1: 'pl-0',
   2: 'pl-3',
   3: 'pl-6',
+  4: 'pl-9',
+  5: 'pl-12',
+  6: 'pl-16',
 }
 
 export function MiniMap({ headings, scrollContainerRef }: Props) {

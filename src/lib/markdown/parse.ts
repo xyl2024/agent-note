@@ -4,7 +4,7 @@ import { inferImageKind, isRenderableImageSrc } from './image-url'
 // -----------------------------------------------------------------------------
 // Markdown 字符串 → Tiptap PMDoc
 //
-// 支持的块：heading(1-3), paragraph, bulletList (含嵌套), orderedList (含嵌套),
+// 支持的块：heading(1-6), paragraph, bulletList (含嵌套), orderedList (含嵌套),
 //          taskList, codeBlock (fenced), blockquote, horizontalRule, image(inline)
 // 支持的 mark：bold, italic, strike, code, link
 // image 行内：`![alt](url)` 或 `![alt](url "title")`，协议白名单 http/https + /api/files/
@@ -254,7 +254,8 @@ function getIndent(line: string): number {
 }
 
 /** 列表项 marker 匹配 */
-const RE_HEADING = /^(#{1,3})\s+(.*)$/
+// 支持一到六级标题（对应 HTML h1-h6 与 ProseMirror heading.levels）
+const RE_HEADING = /^(#{1,6})\s+(.*)$/
 const RE_HR = /^---+\s*$/
 const RE_FENCE = /^```(\w*)\s*$/
 
@@ -612,7 +613,8 @@ function parseMarkdown(lines: string[], fromIdx: number): PMDoc {
     // heading
     const hMatch = line.match(RE_HEADING)
     if (hMatch) {
-      const level = hMatch[1].length
+      // 防御性 clamp：1-6。schema 也只接受这个范围，万一 regex 之后改宽了也不会越界
+      const level = Math.max(1, Math.min(6, hMatch[1].length))
       blocks.push({
         type: 'heading',
         attrs: { level },

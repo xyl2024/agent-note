@@ -78,7 +78,9 @@ export function buildExtensions(placeholder: string): Extensions {
 
   return [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3] },
+      // 支持到 6 级（HTML 标准的全集合）。
+      // 下游：editor.css 的 h1-h6、minimap 的 INDENT/BAR_WIDTH、slash menu、markdown 互转都按这套 level 走。
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
       // 关闭 StarterKit 自带的 codeBlock，由下面的 CodeBlockWithView 替代
       codeBlock: false,
     }),
