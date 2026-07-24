@@ -126,6 +126,10 @@ async function ensureInitialized(): Promise<Mermaid> {
       securityLevel: 'strict',
       theme: 'base',
       fontFamily: FONT_FAMILY,
+      // 解析失败时不画 mermaid 默认的 "Syntax error in text" 错误图（默认会被渲染到
+      // document.body 然后被 removeTempElements 清掉，但时序上会泄漏到页面底部）。
+      // 我们在 renderMermaidSvg 的 try/catch 里捕获错误并显示自定义的错误块。
+      suppressErrorRendering: true,
       themeVariables,
     })
     lastAppliedPalette = palette
